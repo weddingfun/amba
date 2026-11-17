@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<!-- 檔案：amba 正式場圖座位表｜版本：2026-11-10 -->
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>amba 座位表｜想樂創意</title>
+<style>
+:root{--g:#9D380E;--g2:#b0491c;--blue:#6BA1C7;--bg:#faf6f3;--line:#e8d6cc;--ink:#3a2a22;--mute:#8a7568;--ok:#4f8a5b;--warn:#c27a1a;--bad:#c0392b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC",sans-serif;font-size:15px}
+header{background:linear-gradient(90deg,#8a3009,#b0491c);color:#fff;padding:14px 16px}
+header h1{margin:0;font-size:18px}
+header .sub{font-size:13px;opacity:.9;margin-top:3px}
+.wrap{max-width:980px;margin:0 auto;padding:12px 16px 80px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px}
+.stat{font-size:14px}.stat b{color:var(--g);font-size:16px}
+.pill{display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;background:#f3e7e0;color:var(--g)}
+.save-status{margin-left:auto;font-size:12px;color:var(--mute)}
+.save-status.error{color:var(--bad)}
+.notice{background:#fff8f4;border:1px solid #f0d5c6;border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:10px;line-height:1.6}
+.notice.bad{background:#fdf0ee;border-color:#f1c3bc;color:var(--bad)}
+.mapbox{background:#fff;border:1px solid var(--line);border-radius:10px;overflow:auto;position:relative;max-height:78vh;-webkit-overflow-scrolling:touch}
+.map{position:relative;width:100%;transform-origin:0 0;user-select:none;-webkit-user-select:none}
+.map img{display:block;width:100%;pointer-events:none}
+.mk{position:absolute;transform:translate(-50%,-50%);min-width:30px;padding:3px 7px;border-radius:99px;font-size:12px;font-weight:600;line-height:1.25;text-align:center;white-space:nowrap;cursor:pointer;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);color:#fff;background:#9c8f88;touch-action:none}
+.mk small{display:block;font-weight:400;font-size:10px;opacity:.95}
+.mk.part{background:var(--warn)}.mk.full{background:var(--ok)}.mk.over{background:var(--bad)}
+.mk.zone{background:rgba(107,161,199,.92);border-style:dashed}
+.mk.sel{outline:3px solid var(--g);outline-offset:1px}
+.zoombar{display:flex;gap:6px;margin:8px 0}
+button,.btn{font:inherit;font-size:13px;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:6px 10px;cursor:pointer}
+button.pri{background:var(--g);border-color:var(--g);color:#fff}
+button.on{background:var(--blue);border-color:var(--blue);color:#fff}
+button.danger{color:var(--bad);border-color:#f1c3bc}
+h2{font-size:16px;margin:18px 0 8px;color:var(--g)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+.card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.card.hl{box-shadow:0 0 0 3px var(--blue)}
+.card .hd{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.card .hd b{font-size:15px}
+.card .hd .cnt{margin-left:auto;font-size:12px;color:var(--mute)}
+.card .hd .cnt.over{color:var(--bad);font-weight:600}
+.seats{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.seats input,.card textarea,.card input.note{width:100%;font:inherit;font-size:14px;padding:6px 8px;border:1px solid #e3d3c9;border-radius:6px;background:#fffdfb}
+.seats input:focus,.card textarea:focus{outline:2px solid var(--blue);border-color:transparent}
+.card textarea{min-height:52px;margin-top:6px;resize:vertical}
+.zdesc{font-size:13px;color:var(--mute);margin-bottom:4px;white-space:pre-wrap}
+.addseat{margin-top:6px;font-size:12px;padding:4px 8px}
+.panel{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:2px solid var(--g);box-shadow:0 -4px 16px rgba(0,0,0,.15);padding:12px 16px calc(12px + env(safe-area-inset-bottom));z-index:20;display:none}
+.panel.show{display:block}
+.panel .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+.panel label{font-size:13px;color:var(--mute)}
+.panel input,.panel select,.panel textarea{font:inherit;font-size:14px;padding:6px 8px;border:1px solid #e3d3c9;border-radius:6px}
+.tools{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.mask{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:30}
+.dlg{background:#fff;border-radius:12px;padding:18px;width:min(340px,92vw)}
+.dlg input{width:100%;font:inherit;padding:8px;border:1px solid #e3d3c9;border-radius:6px;margin:10px 0}
+.empty{text-align:center;padding:40px 16px;color:var(--mute);background:#fff;border:1px solid var(--line);border-radius:10px}
+.pool span{display:inline-block;background:#f3e7e0;border-radius:6px;padding:2px 8px;margin:2px;font-size:13px}
+@media print{
+  header{background:none;color:#000;padding:0 0 6px}.bar button,.zoombar,.panel,.tools,.addseat,.no-print,.save-status{display:none!important}
+  .mapbox{max-height:none;overflow:visible;border:none}.map{width:100%!important}
+  .wrap{padding:0;max-width:none}.cards{grid-template-columns:repeat(3,1fr);gap:6px}
+  .card{break-inside:avoid;padding:6px 8px}.seats input{border:none;border-bottom:1px solid #ccc;border-radius:0;padding:2px 4px;font-size:12px}
+  .card textarea{border:none;min-height:0;font-size:12px}
+}
+</style>
+</head>
+<body>
+<header><h1 id="ttl">amba 座位表</h1><div class="sub" id="sub">載入中…</div></header>
+<div class="wrap">
+  <div id="staffBar" class="notice no-print" style="display:none"></div>
+  <div class="bar">
+    <span class="stat">已填 <b id="sFilled">0</b> 位</span>
+    <span class="stat">座位 <b id="sCap">0</b> 位</span>
+    <span class="stat" id="sForm"></span>
+    <button class="no-print" onclick="window.print()">🖨 列印／存 PDF</button>
+    <span class="save-status" id="saveStatus"></span>
+  </div>
+  <div id="warn"></div>
+  <div id="main"><div class="empty">載入中…</div></div>
+</div>
+<div class="panel" id="panel"></div>
+<script>
+(function(){
+'use strict';
+var BASE_URL = 'https://script.google.com/macros/s/AKfycbwV3pXKiwOBCbvv_W0ysv1_mjGsAnK4VqKQI5-jAbjDWGgEaBpVJufiszaVhYsc73Lg/exec';
+var TOKEN = (location.search.match(/[?&]token=([^&]+)/) || [])[1]; TOKEN = TOKEN ? decodeURIComponent(TOKEN) : '';
+var STAFF = /staff/.test(location.hash) || /[?&]staff=1/.test(location.search);
+var PW = ''; try { PW = sessionStorage.getItem('wfAmbaPw') || ''; } catch (e) {}
+var ORDER = {}, FORM = {}, SEAT = null, LOADED = false, ZOOM = 1, SEL = null, TOOL = null, HL = null;
+var $ = function (id) { return document.getElementById(id); };
+var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+var driveId = function (u) { return (String(u || '').match(/\/d\/([\w-]+)/) || String(u || '').match(/[?&]id=([\w-]+)/) || [])[1] || ''; };
+var imgUrl = function (id) { return 'https://lh3.googleusercontent.com/d/' + id; };
+var now = function () { var d = new Date(); return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0'); };
+function setStatus(cls, msg) { var el = $('saveStatus'); el.className = 'save-status ' + cls; el.textContent = msg; }
+function blank() { return { v: 'map', plan: null, tables: {} }; }
+function items() { return (SEAT && SEAT.plan && SEAT.plan.items) || {}; }
+function ids() {
+  var it = items();
+  return Object.keys(it).sort(function (a, b) {
+    var ka = it[a].kind === 'zone' ? 1 : 0, kb = it[b].kind === 'zone' ? 1 : 0;
+    return ka - kb || String(it[a].label).localeCompare(String(it[b].label), 'zh-Hant', { numeric: true });
+  });
+}
+function tbl(id) { SEAT.tables = SEAT.tables || {}; var t = SEAT.tables[id] = SEAT.tables[id] || {}; t.seats = t.seats || []; return t; }
+function filled(id) { var t = (SEAT.tables || {})[id]; return t && t.seats ? t.seats.filter(function (s) { return s && String(s.name || '').trim(); }).length : 0; }
+function newId() { return 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); }
+
+// ── 載入 ──
+function load() {
+  if (!TOKEN) { $('main').innerHTML = '<div class="empty">連結無效，請聯繫想樂創意。</div>'; return; }
+  fetch(BASE_URL + '?token=' + encodeURIComponent(TOKEN) + '&action=getSeatData&_=' + Date.now()).then(function (r) { return r.json(); }).then(function (d) {
+    ORDER = d.order || {}; FORM = d.form || {};
+    SEAT = (d.seat && d.seat.v === 'map') ? d.seat : (d.seat ? null : blank());
+    if (!SEAT) { $('main').innerHTML = '<div class="empty">這組已使用其他格式的座位表，請聯繫想樂創意。</div>'; return; }
+    SEAT.tables = SEAT.tables || {};
+    SY_BASE = JSON.stringify(SEAT); LOADED = true;
+    $('ttl').textContent = (ORDER.groomName || '') + ' & ' + (ORDER.brideName || '') + '｜座位表';
+    $('sub').textContent = [ORDER.weddingDate, ORDER.venueName || 'amba', ORDER.mealSession].filter(Boolean).join('｜');
+    document.title = $('ttl').textContent + '｜想樂創意';
+    if (STAFF && !PW) askPw(); else render();
+  }).catch(function (e) { $('main').innerHTML = '<div class="empty">載入失敗，請重新整理（' + esc(e.message) + '）</div>'; });
+}
+
+// ── 想樂專用密碼 ──
+function post(body) {
+  return fetch(BASE_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) }).then(function (r) { return r.json(); });
+}
+function askPw(msg) {
+  var m = document.createElement('div'); m.className = 'mask';
+  m.innerHTML = '<div class="dlg"><b>想樂專用：標桌模式</b><div style="font-size:13px;color:#8a7568;margin-top:4px">' + (msg || '請輸入想樂專用密碼') + '</div><input type="password" id="pwIn" autocomplete="off"><div style="display:flex;gap:8px;justify-content:flex-end"><button id="pwNo">只看不編輯</button><button class="pri" id="pwOk">進入</button></div></div>';
+  document.body.appendChild(m);
+  var go = function () {
+    var v = $('pwIn').value; $('pwOk').disabled = true;
+    post({ token: TOKEN, action: 'checkStaff', pw: v }).then(function (r) {
+      m.remove();
+      if (r && r.success) { PW = v; try { sessionStorage.setItem('wfAmbaPw', v); } catch (e) {} render(); }
+      else askPw('密碼不正確，請再試一次');
+    }).catch(function (e) { m.remove(); askPw('驗證失敗：' + e.message); });
+  };
+  $('pwOk').onclick = go; $('pwIn').onkeydown = function (e) { if (e.key === 'Enter') go(); };
+  $('pwNo').onclick = function () { m.remove(); STAFF = false; render(); };
+  setTimeout(function () { $('pwIn').focus(); }, 50);
+}
+function staffOn() { return STAFF && !!PW; }
+
+// ── 畫面 ──
+function render() {
+  var plan = SEAT.plan, edit = staffOn();
+  var latestImg = driveId(ORDER.layoutPlanUrl);
+  var img = edit ? (latestImg || (plan && plan.img)) : (plan && plan.img);
+  var sb = $('staffBar');
+  if (edit) {
+    sb.style.display = 'block';
+    sb.innerHTML = '<b>📍 標桌模式（想樂專用）</b>　選下方工具後點場圖新增；拖曳可移動；點標記可修改或刪除。改完會自動儲存。' +
+      (plan && plan.img && latestImg && plan.img !== latestImg ? '<div style="color:#c0392b;margin-top:4px">⚠️ 正式場圖已更換，請確認標記位置，確認後按 <button onclick="WF.applyImg()">套用新場圖</button>（新人才會看到新圖）</div>' : '') +
+      '<div class="tools" style="margin-top:8px"><span style="font-size:13px">新增：</span>' +
+      ['8', '10', '12', '16'].map(function (n) { return '<button data-tool="t' + n + '" onclick="WF.tool(\'t' + n + '\')">' + n + 'P 桌</button>'; }).join('') +
+      '<button data-tool="tc" onclick="WF.tool(\'tc\')">自訂人數</button><button data-tool="z" onclick="WF.tool(\'z\')">區域（不排座位）</button>' +
+      '<span id="planSt" style="font-size:12px;color:#8a7568;margin-left:6px"></span></div>';
+  } else sb.style.display = 'none';
+
+  if (!img) { $('main').innerHTML = '<div class="empty">正式場圖準備中，完成後想樂創意會通知您填寫座位表 🙏</div>'; stats(); return; }
+  if (!edit && !ids().length) { $('main').innerHTML = '<div class="empty">正式場圖已收到，想樂創意正在標註桌位，完成後即可在這裡填寫座位 🙏</div>'; stats(); return; }
+
+  var h = '<div class="zoombar no-print"><button onclick="WF.zoom(-1)">－ 縮小</button><button onclick="WF.zoom(1)">＋ 放大</button>' + (edit ? '' : '<span style="font-size:12px;color:#8a7568;align-self:center">點桌號可直接跳到該桌填寫</span>') + '</div>';
+  h += '<div class="mapbox" id="mapbox"><div class="map" id="map" style="width:' + (ZOOM * 100) + '%"><img id="mapImg" src="' + imgUrl(img) + '" alt="正式場圖">';
+  ids().forEach(function (id) { h += mkHtml(id); });
+  h += '</div></div>';
+  var tables = ids().filter(function (id) { return items()[id].kind !== 'zone'; }), zones = ids().filter(function (id) { return items()[id].kind === 'zone'; });
+  h += '<h2>桌次名單</h2><div class="cards">' + tables.map(cardHtml).join('') + '</div>';
+  if (zones.length) h += '<h2>區域需求</h2><div class="cards">' + zones.map(cardHtml).join('') + '</div>';
+  var pool = Object.keys(SEAT.tables || {}).filter(function (id) { return !items()[id] && filled(id); });
+  if (pool.length) h += '<h2>未安排的名單</h2><div class="notice">場圖調整後，以下名單原本的桌次已取消，請重新填到新的桌次。<div class="pool" style="margin-top:6px">' + pool.map(function (id) { return SEAT.tables[id].seats.filter(function (s) { return s && s.name; }).map(function (s) { return '<span>' + esc(s.name) + '</span>'; }).join(''); }).join('') + '</div><button style="margin-top:6px" onclick="WF.clearPool()">已重新安排，清除這區</button></div>';
+  $('main').innerHTML = h;
+  bindMap(); stats();
+  if (HL) { var c = $('card_' + HL); if (c) c.classList.add('hl'); }
+}
+function mkHtml(id) {
+  var it = items()[id], n = filled(id), cap = +it.cap || 0;
+  var cls = it.kind === 'zone' ? 'zone' : (n === 0 ? '' : n > cap ? 'over' : n === cap ? 'full' : 'part');
+  return '<div class="mk ' + cls + (SEL === id ? ' sel' : '') + '" data-id="' + id + '" style="left:' + it.x + '%;top:' + it.y + '%">' + esc(it.label) + (it.kind === 'zone' ? '' : '<small>' + n + '/' + cap + '</small>') + '</div>';
+}
+function cardHtml(id) {
+  var it = items()[id], t = (SEAT.tables || {})[id] || {}, cap = +it.cap || 0, n = filled(id);
+  if (it.kind === 'zone') return '<div class="card" id="card_' + id + '"><div class="hd"><b>' + esc(it.label) + '</b></div>' + (it.note ? '<div class="zdesc">' + esc(it.note) + '</div>' : '') + '<textarea data-note="' + id + '" placeholder="需求或備註（例：放 3 個立架、拍貼機需插座）">' + esc(t.note || '') + '</textarea></div>';
+  var seats = (t.seats || []).slice(), len = Math.max(cap, seats.length), s = '';
+  for (var i = 0; i < len; i++) s += '<input data-t="' + id + '" data-i="' + i + '" value="' + esc(seats[i] && seats[i].name || '') + '" placeholder="' + (i + 1) + (i >= cap ? '（加位）' : '') + '">';
+  return '<div class="card" id="card_' + id + '"><div class="hd"><b>' + esc(it.label) + '</b><span class="pill">' + cap + ' 位</span><span class="cnt' + (n > cap ? ' over' : '') + '">已填 ' + n + '／' + cap + '</span></div>' + (it.note ? '<div class="zdesc">' + esc(it.note) + '</div>' : '') + '<div class="seats">' + s + '</div><button class="addseat no-print" onclick="WF.addSeat(\'' + id + '\')">＋ 加一位</button><input class="note" data-note="' + id + '" style="margin-top:6px" value="' + esc(t.note || '') + '" placeholder="本桌備註（例：主桌、需兒童椅 1 張）"></div>';
+}
+function stats() {
+  var cap = 0, n = 0;
+  ids().forEach(function (id) { var it = items()[id]; if (it.kind !== 'zone') { cap += +it.cap || 0; n += filled(id); } });
+  $('sFilled').textContent = n; $('sCap').textContent = cap;
+  var a = +FORM.paxAdult || 0, k = +FORM.paxKid612 || 0, u = +FORM.paxKidU6 || 0, g = +FORM.guaranteedPax || 0;
+  $('sForm').innerHTML = (a || k || u) ? '確認單 <b>' + (a + k + u) + '</b> 位<span style="font-size:12px;color:#8a7568">（大人 ' + a + (k ? '・兒童 ' + k : '') + (u ? '・6 歲以下 ' + u : '') + '）</span>' : (g ? '保證人數 <b>' + g + '</b> 位' : '');
+  var w = [];
+  if (cap && n > cap) w.push('已填名單超過座位數 ' + (n - cap) + ' 位，請調整或與想樂創意確認是否加位。');
+  if (cap && (a + k + u) > cap) w.push('確認單人數（' + (a + k + u) + '）多於場圖座位（' + cap + '），請與想樂創意確認。');
+  $('warn').innerHTML = w.map(function (x) { return '<div class="notice bad">' + esc(x) + '</div>'; }).join('');
+}
+function refreshMarks() {
+  var map = $('map'); if (!map) return;
+  map.querySelectorAll('.mk').forEach(function (m) { m.remove(); });
+  ids().forEach(function (id) { map.insertAdjacentHTML('beforeend', mkHtml(id)); });
+  stats();
+}
+function refreshCardCount(id) {
+  var c = $('card_' + id); if (!c) return; var it = items()[id], n = filled(id), cap = +it.cap || 0, el = c.querySelector('.cnt');
+  if (el) { el.textContent = '已填 ' + n + '／' + cap; el.className = 'cnt' + (n > cap ? ' over' : ''); }
+}
+
+// ── 地圖互動 ──
+function bindMap() {
+  var map = $('map'); if (!map) return;
+  var drag = null;
+  map.addEventListener('pointerdown', function (e) {
+    var mk = e.target.closest('.mk');
+    if (mk && staffOn()) { drag = { id: mk.dataset.id, el: mk, x0: e.clientX, y0: e.clientY, moved: false }; mk.setPointerCapture(e.pointerId); e.preventDefault(); }
+  });
+  map.addEventListener('pointermove', function (e) {
+    if (!drag) return;
+    if (Math.abs(e.clientX - drag.x0) + Math.abs(e.clientY - drag.y0) > 4) drag.moved = true;
+    if (!drag.moved) return;
+    var p = pos(e); drag.el.style.left = p.x + '%'; drag.el.style.top = p.y + '%';
+  });
+  map.addEventListener('pointerup', function (e) {
+    if (drag) {
+      var d = drag; drag = null;
+      if (d.moved) { var p = pos(e), it = items()[d.id]; it.x = p.x; it.y = p.y; savePlan(); }
+      else select(d.id);
+      return;
+    }
+    var mk = e.target.closest('.mk');
+    if (mk) { jump(mk.dataset.id); return; }
+    if (staffOn() && TOOL) addAt(pos(e));
+  });
+}
+function pos(e) {
+  var r = $('mapImg').getBoundingClientRect();
+  var x = (e.clientX - r.left) / r.width * 100, y = (e.clientY - r.top) / r.height * 100;
+  return { x: Math.round(Math.max(0, Math.min(100, x)) * 10) / 10, y: Math.round(Math.max(0, Math.min(100, y)) * 10) / 10 };
+}
+function jump(id) {
+  HL = id; document.querySelectorAll('.card.hl').forEach(function (c) { c.classList.remove('hl'); });
+  var c = $('card_' + id); if (!c) return; c.classList.add('hl'); c.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  var f = c.querySelector('.seats input'); if (f) { var empty = Array.prototype.filter.call(c.querySelectorAll('.seats input'), function (x) { return !x.value; })[0]; setTimeout(function () { (empty || f).focus({ preventScroll: true }); }, 400); }
+}
+
+// ── 想樂：標桌 ──
+function nextNo() { var mx = 0; ids().forEach(function (id) { var m = String(items()[id].label).match(/^(\d+)/); if (m) mx = Math.max(mx, +m[1]); }); return mx + 1; }
+function addAt(p) {
+  var it, id = newId();
+  if (TOOL === 'z') { var nm = prompt('區域名稱（例：賓客活動區、送客區）'); if (!nm) return; it = { kind: 'zone', label: nm, cap: 0, note: '' }; }
+  else {
+    var cap = TOOL === 'tc' ? +prompt('這桌幾位？', '10') : +TOOL.slice(1); if (!cap) return;
+    var lb = prompt('桌名（可改成「主桌」「沙發區」等）', String(nextNo())); if (lb === null) return;
+    it = { kind: 'table', label: lb || String(nextNo()), cap: cap, note: '' };
+  }
+  it.x = p.x; it.y = p.y;
+  SEAT.plan = SEAT.plan || { img: driveId(ORDER.layoutPlanUrl), items: {} };
+  if (!SEAT.plan.img) SEAT.plan.img = driveId(ORDER.layoutPlanUrl);
+  SEAT.plan.items[id] = it; SEL = id;
+  render(); select(id); savePlan();
+}
+function select(id) {
+  SEL = id; refreshMarks();
+  var it = items()[id]; if (!it) return closePanel();
+  var p = $('panel');
+  p.innerHTML = '<div class="row"><b style="color:#9D380E">編輯：' + esc(it.label) + '</b><button style="margin-left:auto" onclick="WF.closePanel()">完成</button></div>' +
+    '<div class="row"><label>類型</label><select id="pKind"><option value="table"' + (it.kind !== 'zone' ? ' selected' : '') + '>桌位</option><option value="zone"' + (it.kind === 'zone' ? ' selected' : '') + '>區域（不排座位）</option></select>' +
+    '<label>名稱</label><input id="pLabel" value="' + esc(it.label) + '" style="width:120px"><label>人數</label><input id="pCap" type="number" min="0" value="' + (+it.cap || 0) + '" style="width:70px"></div>' +
+    '<div class="row"><label>給新人看的說明</label><input id="pNote" value="' + esc(it.note || '') + '" placeholder="例：沙發區、長桌；區域可寫用途" style="flex:1;min-width:180px"></div>' +
+    '<div class="row"><button class="danger" onclick="WF.del()">刪除這個標記</button>' + (filled(id) ? '<span style="font-size:12px;color:#c0392b">這桌已填 ' + filled(id) + ' 位，刪除後名單會移到「未安排」</span>' : '') + '</div>';
+  p.classList.add('show');
+  var upd = function () { it.kind = $('pKind').value; it.label = $('pLabel').value.trim() || it.label; it.cap = Math.max(0, +$('pCap').value || 0); it.note = $('pNote').value; refreshMarks(); savePlan(); };
+  ['pKind', 'pLabel', 'pCap', 'pNote'].forEach(function (k) { $(k).addEventListener('change', upd); });
+}
+function closePanel() { SEL = null; $('panel').classList.remove('show'); render(); }
+var planTimer = null;
+function savePlan() {
+  var st = $('planSt'); if (st) st.textContent = '配置未儲存…';
+  clearTimeout(planTimer);
+  planTimer = setTimeout(function () {
+    planTimer = null;
+    var plan = JSON.parse(JSON.stringify(SEAT.plan));
+    post({ token: TOKEN, action: 'saveSeatPlan', pw: PW, plan: plan }).then(function (r) {
+      var st2 = $('planSt');
+      if (r && r.success) { var b = JSON.parse(SY_BASE); b.plan = plan; b.v = 'map'; b.tables = b.tables || {}; SY_BASE = JSON.stringify(b); if (st2) st2.textContent = '✓ 配置已儲存 ' + now(); }
+      else { if (st2) st2.textContent = '配置儲存失敗：' + (r && r.error || ''); if (r && /密碼/.test(r.error || '')) { PW = ''; try { sessionStorage.removeItem('wfAmbaPw'); } catch (e) {} askPw('密碼已失效，請重新輸入'); } }
+    }).catch(function (e) { var st2 = $('planSt'); if (st2) st2.textContent = '配置儲存失敗：' + e.message; setTimeout(savePlan, 5000); });
+  }, 1000);
+}
+
+// ── 新人填名單 ──
+document.addEventListener('input', function (e) {
+  var el = e.target;
+  if (el.dataset.t !== undefined && el.dataset.i !== undefined) {
+    var t = tbl(el.dataset.t), i = +el.dataset.i;
+    while (t.seats.length <= i) t.seats.push({ name: '' });
+    t.seats[i] = { name: el.value };
+    refreshCardCount(el.dataset.t); refreshMarks(); scheduleSave();
+  } else if (el.dataset.note !== undefined) { tbl(el.dataset.note).note = el.value; scheduleSave(); }
+});
+
+// ── 存檔與多人同步（與其他場地座位表同一套） ──
+var SY_BASE = null, SY_SAVING = false, saveTimer = null;
+function scheduleSave() { if (!LOADED || !SEAT.plan) return; clearTimeout(saveTimer); setStatus('saving', '編輯中…'); saveTimer = setTimeout(doSave, 1200); }
+function syFlat(o, p, m) {
+  m = m || {};
+  if (Array.isArray(o)) { m[p + '@a'] = String(o.length); o.forEach(function (v, i) { syFlat(v, p + '.' + i, m); }); }
+  else if (o && typeof o === 'object') { m[p + '@o'] = '1'; Object.keys(o).forEach(function (k) { syFlat(o[k], p + '.' + k, m); }); }
+  else m[p] = JSON.stringify(o === undefined ? null : o);
+  return m;
+}
+function syUnflat(m) {
+  var kids = {};
+  Object.keys(m).forEach(function (k) { var b = k.replace(/@[ao]$/, ''), i = b.lastIndexOf('.'); if (i < 0) return; (kids[b.slice(0, i)] = kids[b.slice(0, i)] || {})[b.slice(i + 1)] = 1; });
+  function has(q) { return m[q] !== undefined || m[q + '@a'] !== undefined || m[q + '@o'] !== undefined; }
+  function build(p) {
+    if (m[p + '@a'] !== undefined) { var n = +m[p + '@a'], a = []; for (var i = 0; i < n; i++) a.push(has(p + '.' + i) ? build(p + '.' + i) : null); return a; }
+    if (m[p + '@o'] !== undefined) { var o = {}; Object.keys(kids[p] || {}).forEach(function (s) { if (has(p + '.' + s)) o[s] = build(p + '.' + s); }); return o; }
+    return m[p] !== undefined ? JSON.parse(m[p]) : null;
+  }
+  return build('');
+}
+function syMerge(base, mine, theirs) {
+  var b = syFlat(base, ''), l = syFlat(mine, ''), r = syFlat(theirs, ''), out = {}, keys = {};
+  [b, l, r].forEach(function (o) { Object.keys(o).forEach(function (k) { keys[k] = 1; }); });
+  Object.keys(keys).forEach(function (k) { var v = l[k] === b[k] ? r[k] : l[k]; if (v !== undefined) out[k] = v; });
+  return syUnflat(out);
+}
+function syFetch() { return fetch(BASE_URL + '?token=' + encodeURIComponent(TOKEN) + '&action=getSeatData&_=' + Date.now()).then(function (r) { return r.json(); }).then(function (d) { return (d && d.seat) || null; }); }
+function sySync(remote) {
+  if (!remote || remote.v !== 'map') return false;
+  var rs = JSON.stringify(remote); if (SY_BASE === null || rs === SY_BASE) return false;
+  var mine = JSON.parse(JSON.stringify(SEAT)), merged = syMerge(JSON.parse(SY_BASE), mine, remote);
+  SY_BASE = rs;
+  if (JSON.stringify(merged) === JSON.stringify(mine)) return false;
+  SEAT = merged; SEAT.tables = SEAT.tables || {}; render();
+  setStatus('saved', '↻ 已同步另一位的修改 ' + now());
+  return true;
+}
+function doSave() {
+  saveTimer = null;
+  if (SY_SAVING) { scheduleSave(); return; }
+  var str = JSON.stringify(SEAT);
+  if (str === SY_BASE) { setStatus('saved', '✓ 已儲存'); return; }
+  SY_SAVING = true; setStatus('saving', '儲存中…');
+  post({ token: TOKEN, action: 'saveSeatData', seat: JSON.parse(str), base: JSON.parse(SY_BASE) })
+    .then(function (r) { if (r && r.success === false) throw new Error(r.error || '伺服器拒絕'); return syFetch(); })
+    .then(function (remote) { SY_BASE = str; sySync(remote); SY_SAVING = false; setStatus('saved', '✓ 已儲存 ' + now()); })
+    .catch(function (e) { SY_SAVING = false; setStatus('error', '儲存失敗：' + e.message + '（稍後自動重試）'); setTimeout(scheduleSave, 8000); });
+}
+function syBusy() { var a = document.activeElement; return !!(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT')) || $('panel').classList.contains('show') || !!planTimer || !!document.querySelector('.mask'); }
+function syPoll() { if (!LOADED || SY_SAVING || saveTimer || document.hidden || syBusy()) return; syFetch().then(function (r) { if (!SY_SAVING && !saveTimer && !syBusy()) sySync(r); }).catch(function () {}); }
+setInterval(syPoll, 6000);
+document.addEventListener('visibilitychange', function () { if (!document.hidden) syPoll(); });
+window.addEventListener('beforeunload', function (e) { if (saveTimer || SY_SAVING || planTimer) { e.preventDefault(); e.returnValue = ''; } });
+
+window.WF = {
+  zoom: function (d) { ZOOM = Math.max(1, Math.min(3, ZOOM + d * 0.5)); var m = $('map'); if (m) m.style.width = (ZOOM * 100) + '%'; },
+  tool: function (t) { TOOL = TOOL === t ? null : t; document.querySelectorAll('[data-tool]').forEach(function (b) { b.classList.toggle('on', b.dataset.tool === TOOL); }); },
+  closePanel: closePanel,
+  del: function () { if (!SEL || !confirm('刪除「' + items()[SEL].label + '」？')) return; delete SEAT.plan.items[SEL]; closePanel(); savePlan(); },
+  addSeat: function (id) { var t = tbl(id); var cap = +items()[id].cap || 0; while (t.seats.length < cap) t.seats.push({ name: '' }); t.seats.push({ name: '' }); render(); jump(id); },
+  clearPool: function () { if (!confirm('確定已重新安排？這區名單會清除。')) return; Object.keys(SEAT.tables).forEach(function (id) { if (!items()[id]) delete SEAT.tables[id]; }); render(); scheduleSave(); },
+  applyImg: function () { SEAT.plan.img = driveId(ORDER.layoutPlanUrl); render(); savePlan(); }
+};
+load();
+})();
+</script>
+</body>
+</html>
