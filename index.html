@@ -185,7 +185,7 @@ function render() {
       ['8', '10', '12', '16'].map(function (n) { return '<button data-tool="t' + n + '" onclick="WF.tool(\'t' + n + '\')">' + n + 'P 桌</button>'; }).join('') +
       '<button data-tool="tc" onclick="WF.tool(\'tc\')">自訂人數</button><button data-tool="z" onclick="WF.tool(\'z\')">區域（不排座位）</button>' +
       '<span id="planSt" style="font-size:12px;color:#8a7568;margin-left:6px"></span></div>' +
-      '<div class="tools" style="margin-top:8px"><button class="pri" onclick="WF.autoSeats()">🤖 自動偵測座位</button><span style="font-size:12px;color:#8a7568">先把每一桌標在桌子中央、設好人數，再按這裡；會依場圖上的椅子自動排座位編號（順時針）</span></div>' +
+      '<div class="tools" style="margin-top:8px"><button class="pri" onclick="WF.autoSeats()">🤖 自動偵測座位</button><span style="font-size:12px;color:#8a7568">先把每一桌標在桌子中央、設好人數，再按這裡；會依場圖上的椅子自動排座位編號（由上到下、由左到右）</span></div>' +
       '<div id="autoSt" style="font-size:13px;margin-top:6px"></div>';
   } else sb.style.display = 'none';
 
@@ -353,9 +353,9 @@ function autoSeats(force) {
     var med = sq.length ? sq[Math.floor(sq.length / 2)] : 120, side = Math.sqrt(med);
     var chairs = comps.filter(function (o) { return o.c !== 3 && o.w / o.h > 0.7 && o.w / o.h < 1.4 && o.n > med * 0.5 && o.n < med * 2; });
     var sofas = [];
-    comps.filter(function (o) { return o.c === 3 && o.n > med * 3 && o.n < med * 14; }).forEach(function (o) {
-      var r = o.w / o.h, k = r > 1.4 ? Math.max(1, Math.round(o.w / (side * 2))) : r < 0.71 ? Math.max(1, Math.round(o.h / (side * 2))) : 1;
-      for (var i = 0; i < k; i++) sofas.push({ x: r > 1.4 ? o.x - o.w / 2 + o.w * (i + 0.5) / k : o.x, y: r < 0.71 ? o.y - o.h / 2 + o.h * (i + 0.5) / k : o.y });
+    comps.filter(function (o) { return o.c === 3 && o.n > med * 3 && o.n < med * 14 && o.n / (o.w * o.h) > 0.8 && Math.min(o.w, o.h) > side * 1.5; }).forEach(function (o) {
+      var hz = o.w >= o.h, L = Math.max(o.w, o.h), S = Math.min(o.w, o.h), k = Math.max(1, Math.round(L / (S * 0.95)));
+      for (var i = 0; i < k; i++) sofas.push({ x: hz ? o.x - o.w / 2 + o.w * (i + 0.5) / k : o.x, y: hz ? o.y : o.y - o.h / 2 + o.h * (i + 0.5) / k });
     });
     var T = tabs.map(function (id) { var it = items()[id]; return { id: id, x: it.x / 100 * W, y: it.y / 100 * H, cap: +it.cap || 0, s: [] }; });
     function fill(list, kind) {
@@ -383,8 +383,10 @@ function autoSeats(force) {
         list = []; for (var k2 = 0; k2 < t.cap; k2++) { var an = -Math.PI / 2 + k2 / t.cap * Math.PI * 2; list.push([t.x + Math.cos(an) * R, t.y + Math.sin(an) * R]); }
         how = '桌緣平均排';
       } else {
-        var mx = 0, my = 0; s.forEach(function (o) { mx += o.x; my += o.y; }); mx /= s.length; my /= s.length;
-        list = s.map(function (o) { return [o.x, o.y, Math.atan2(o.y - my, o.x - mx)]; }).sort(function (a, b) { return a[2] - b[2]; });
+        // 依閱讀順序：由上到下分排，每排由左到右
+        var srt = s.slice().sort(function (a, b) { return a.y - b.y; }), rows = [];
+        srt.forEach(function (o) { var r = rows[rows.length - 1]; if (r && Math.abs(o.y - r.y0) < side * 1.2) r.a.push(o); else rows.push({ y0: o.y, a: [o] }); });
+        list = []; rows.forEach(function (r) { r.a.sort(function (a, b) { return a.x - b.x; }).forEach(function (o) { list.push([o.x, o.y]); }); });
       }
       items()[t.id].pts = list.map(function (p) { return [Math.round(p[0] / W * 10000) / 100, Math.round(p[1] / H * 10000) / 100]; });
       rep.push({ label: items()[t.id].label, got: list.length, cap: t.cap, how: how });
