@@ -123,7 +123,7 @@ var BASE_URL = 'https://script.google.com/macros/s/AKfycbwV3pXKiwOBCbvv_W0ysv1_m
 var TOKEN = (location.search.match(/[?&]token=([^&]+)/) || [])[1]; TOKEN = TOKEN ? decodeURIComponent(TOKEN) : '';
 var STAFF = /staff/.test(location.hash) || /[?&]staff=1/.test(location.search);
 var PW = ''; try { PW = sessionStorage.getItem('wfAmbaPw') || ''; } catch (e) {}
-var ORDER = {}, FORM = {}, SEAT = null, LOADED = false, ZOOM = 1, SEL = null, TOOL = null, HL = null, PTSID = null, AR = 0;
+var ORDER = {}, FORM = {}, SEAT = null, LOADED = false, ZOOM = 1, SEL = null, TOOL = null, HL = null, PTSID = null, KIDID = null, AR = 0;
 var $ = function (id) { return document.getElementById(id); };
 var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
 var driveId = function (u) { return (String(u || '').match(/\/d\/([\w-]+)/) || String(u || '').match(/[?&]id=([\w-]+)/) || [])[1] || ''; };
@@ -217,13 +217,18 @@ function render() {
   if (HL) { var c = $('card_' + HL); if (c) c.classList.add('hl'); }
 }
 function mkHtml(id) {
-  var it = items()[id], n = filled(id), cap = +it.cap || 0;
+  var it = items()[id], n = filled(id), cap = capOf(id);
   var cls = it.kind === 'zone' ? 'zone' : (n === 0 ? '' : n > cap ? 'over' : n === cap ? 'full' : 'part');
   var tb = (SEAT.tables || {})[id] || {}, tt = it.kind === 'zone' ? '' : String(tb.title || '').trim(), no = it.kind === 'zone' ? '' : String(tb.no || '').trim();
   return '<div class="mk ' + cls + (SEL === id ? ' sel' : '') + '" data-id="' + id + '" style="left:' + it.x + '%;top:' + it.y + '%">' + esc(no || it.label) + (tt ? '<small>' + esc(tt.length > 6 ? tt.slice(0, 6) + '…' : tt) + '</small>' : '') + (it.kind === 'zone' ? '' : '<small>' + n + '/' + cap + '</small>') + '</div>';
 }
-function pts(id) { var p = items()[id] && items()[id].pts; return Array.isArray(p) ? p : []; }
-function seatF(id, i, f) { var t = (SEAT.tables || {})[id]; return !!(t && t.seats && t.seats[i] && t.seats[i][f]); }
+function basePts(id) { var p = items()[id] && items()[id].pts; return Array.isArray(p) ? p : []; }
+function kidPts(id) { var p = items()[id] && items()[id].kids; return Array.isArray(p) ? p : []; }
+function pts(id) { return basePts(id).concat(kidPts(id)); }
+function baseCap(id) { return +(items()[id] || {}).cap || 0; }
+function capOf(id) { return baseCap(id) + kidPts(id).length; }
+function isExtraKid(id, i) { return i >= baseCap(id) && i < capOf(id); }
+function seatF(id, i, f) { if (f === 'kid' && isExtraKid(id, i)) return true; var t = (SEAT.tables || {})[id]; return !!(t && t.seats && t.seats[i] && t.seats[i][f]); }
 function seatName(id, i) { var t = (SEAT.tables || {})[id]; return (t && t.seats && t.seats[i] && String(t.seats[i].name || '').trim()) || ''; }
 function dotsHtml(id) {
   return pts(id).map(function (p, i) { var nm = seatName(id, i); return '<div class="st' + (nm ? ' f' : '') + (seatF(id, i, 'kid') ? ' k' : '') + (seatF(id, i, 'veg') ? ' v' : '') + '"' + ((seatF(id, i, 'kid') || seatF(id, i, 'veg')) ? ' data-f="' + (seatF(id, i, 'kid') ? '童' : '') + (seatF(id, i, 'veg') ? '素' : '') + '"' : '') + ' data-sid="' + id + '" data-si="' + i + '" style="left:' + p[0] + '%;top:' + p[1] + '%" title="' + (i + 1) + (nm ? '　' + esc(nm) : '') + '"></div>'; }).join('');
@@ -248,15 +253,15 @@ function focusSeat(id, i) {
   setTimeout(function () { var f = document.querySelector('input[data-t="' + id + '"][data-i="' + i + '"]'); if (f) f.focus({ preventScroll: true }); }, 450);
 }
 function cardHtml(id) {
-  var it = items()[id], t = (SEAT.tables || {})[id] || {}, cap = +it.cap || 0, n = filled(id);
+  var it = items()[id], t = (SEAT.tables || {})[id] || {}, cap = capOf(id), n = filled(id);
   if (it.kind === 'zone') return '<div class="card" id="card_' + id + '"><div class="hd"><b>' + esc(it.label) + '</b></div>' + (it.note ? '<div class="zdesc">' + esc(it.note) + '</div>' : '') + '<textarea data-note="' + id + '" placeholder="需求或備註（例：放 3 個立架、拍貼機需插座）">' + esc(t.note || '') + '</textarea></div>';
   var seats = (t.seats || []).slice(), last = 0, s = '';
   seats.forEach(function (x, i) { if (x && String(x.name || '').trim()) last = i + 1; });
   var len = Math.max(cap, last), nk = 0, nv = 0;
   for (var i = 0; i < len; i++) {
-    var x = seats[i] || {}, ov = i >= cap; if (x.kid) nk++; if (x.veg) nv++;
-    s += '<label class="si' + (ov ? ' over-row' : '') + '"><em>' + (i + 1) + '</em><input data-t="' + id + '" data-i="' + i + '" value="' + esc(x.name || '') + '" placeholder="' + (ov ? '超出座位，請移到其他桌' : '姓名') + '">' +
-      '<button type="button" class="fl kid' + (x.kid ? ' on' : '') + '" data-fl="kid" data-ft="' + id + '" data-fi="' + i + '" title="需要兒童椅">童</button>' +
+    var x = seats[i] || {}, ov = i >= cap, xk = seatF(id, i, 'kid'), ex = isExtraKid(id, i); if (xk) nk++; if (x.veg) nv++;
+    s += '<label class="si' + (ov ? ' over-row' : '') + '"><em>' + (i + 1) + '</em><input data-t="' + id + '" data-i="' + i + '" value="' + esc(x.name || '') + '" placeholder="' + (ov ? '超出座位，請移到其他桌' : ex ? '兒童椅（加位）' : '姓名') + '">' +
+      '<button type="button" class="fl kid' + (xk ? ' on' : '') + '" data-fl="kid" data-ft="' + id + '" data-fi="' + i + '" title="需要兒童椅">童</button>' +
       '<button type="button" class="fl veg' + (x.veg ? ' on' : '') + '" data-fl="veg" data-ft="' + id + '" data-fi="' + i + '" title="素食">素</button></label>';
   }
   var tags = (nk ? '兒童椅 ' + nk : '') + (nk && nv ? '・' : '') + (nv ? '素食 ' + nv : '');
@@ -267,15 +272,16 @@ function cardHtml(id) {
 }
 function stats() {
   var cap = 0, n = 0;
-  ids().forEach(function (id) { var it = items()[id]; if (it.kind !== 'zone') { cap += +it.cap || 0; n += filled(id); } });
+  ids().forEach(function (id) { var it = items()[id]; if (it.kind !== 'zone') { cap += capOf(id); n += filled(id); } });
   $('sFilled').textContent = n; $('sCap').textContent = cap;
   var a = +FORM.paxAdult || 0, k = +FORM.paxKid612 || 0, u = +FORM.paxKidU6 || 0, g = +FORM.guaranteedPax || 0;
-  var tk = 0, tv = 0; Object.keys(SEAT.tables || {}).forEach(function (id) { if (!items()[id]) return; (SEAT.tables[id].seats || []).forEach(function (x) { if (x && x.kid) tk++; if (x && x.veg) tv++; }); });
   var lk = [], lv = [];
   ids().forEach(function (id) {
     var it = items()[id]; if (it.kind === 'zone') return; var t = (SEAT.tables || {})[id] || {}, nm = String(t.no || '').trim() || it.label;
-    (t.seats || []).forEach(function (x, i) { if (!x) return; var w = nm + ' 桌 ' + (i + 1) + ' 號' + (String(x.name || '').trim() ? '（' + esc(x.name.trim()) + '）' : ''); if (x.kid) lk.push(w); if (x.veg) lv.push(w); });
+    var len = Math.max(capOf(id), (t.seats || []).length);
+    for (var i = 0; i < len; i++) { var x = (t.seats || [])[i] || {}, w = nm + ' 桌 ' + (i + 1) + ' 號' + (String(x.name || '').trim() ? '（' + esc(String(x.name).trim()) + '）' : ''); if (seatF(id, i, 'kid')) lk.push(w); if (x.veg) lv.push(w); }
   });
+  var tk = lk.length, tv = lv.length;
   $('flagSum').innerHTML = (lk.length ? '<div><b class="fk">童 兒童椅 ' + lk.length + ' 張</b>' + lk.join('、') + '</div>' : '') + (lv.length ? '<div><b class="fv">素 素食 ' + lv.length + ' 位</b>' + lv.join('、') + '</div>' : '');
   $('sFlags').innerHTML = (tk ? '兒童椅 <b>' + tk + '</b> 張' : '') + (tk && tv ? '・' : '') + (tv ? '素食 <b>' + tv + '</b> 位' : '');
   $('sForm').innerHTML = (a || k || u) ? '確認單 <b>' + (a + k + u) + '</b> 位<span style="font-size:12px;color:#8a7568">（大人 ' + a + (k ? '・兒童 ' + k : '') + (u ? '・6 歲以下 ' + u : '') + '）</span>' : (g ? '保證人數 <b>' + g + '</b> 位' : '');
@@ -291,7 +297,7 @@ function refreshMarks() {
   stats();
 }
 function refreshCardCount(id) {
-  var c = $('card_' + id); if (!c) return; var it = items()[id], n = filled(id), cap = +it.cap || 0, el = c.querySelector('.cnt');
+  var c = $('card_' + id); if (!c) return; var it = items()[id], n = filled(id), cap = capOf(id), el = c.querySelector('.cnt');
   if (el) { el.textContent = '已填 ' + n + '／' + cap; el.className = 'cnt' + (n > cap ? ' over' : ''); }
 }
 
@@ -316,7 +322,8 @@ function bindMap() {
       else select(d.id);
       return;
     }
-    if (staffOn() && PTSID && items()[PTSID]) { var it = items()[PTSID]; it.pts = pts(PTSID).slice(); it.pts.push([pos(e).x, pos(e).y]); refreshMarks(); ptsSt(); savePlan(); return; }
+    if (staffOn() && KIDID && items()[KIDID]) { var ik = items()[KIDID]; ik.kids = kidPts(KIDID).slice(); ik.kids.push([pos(e).x, pos(e).y]); KIDID = null; refreshMarks(); ptsSt(); savePlan(); return; }
+    if (staffOn() && PTSID && items()[PTSID]) { var it = items()[PTSID]; it.pts = basePts(PTSID).slice(); it.pts.push([pos(e).x, pos(e).y]); refreshMarks(); ptsSt(); savePlan(); return; }
     var sd = e.target.closest('.st');
     if (sd) { focusSeat(sd.dataset.sid, +sd.dataset.si); return; }
     var mk = e.target.closest('.mk');
@@ -454,7 +461,7 @@ function select(id) {
     '<div class="row"><label>類型</label><select id="pKind"><option value="table"' + (it.kind !== 'zone' ? ' selected' : '') + '>桌位</option><option value="zone"' + (it.kind === 'zone' ? ' selected' : '') + '>區域（不排座位）</option></select>' +
     '<label>名稱</label><input id="pLabel" value="' + esc(it.label) + '" style="width:120px"><label>人數</label><input id="pCap" type="number" min="0" value="' + (+it.cap || 0) + '" style="width:70px"></div>' +
     '<div class="row"><label>給新人看的說明</label><input id="pNote" value="' + esc(it.note || '') + '" placeholder="例：沙發區、長桌；區域可寫用途" style="flex:1;min-width:180px"></div>' +
-    (it.kind === 'zone' ? '' : '<div class="row"><label>座位點</label><span id="ptsSt"></span><button onclick="WF.ptsMode()" id="ptsBtn"></button><button onclick="WF.ptsUndo()">↶ 復原一點</button><button onclick="WF.ptsClear()">清除座位點</button></div>') +
+    (it.kind === 'zone' ? '' : '<div class="row"><label>座位點</label><span id="ptsSt"></span><button onclick="WF.ptsMode()" id="ptsBtn"></button><button onclick="WF.ptsUndo()">↶ 復原一點</button><button onclick="WF.ptsClear()">清除座位點</button></div><div class="row"><label>兒童椅加位</label><span id="kidSt"></span><button onclick="WF.kidMode()" id="kidBtn">➕ 點場圖加一張兒童椅</button><button onclick="WF.kidUndo()">↶ 移除最後一張</button></div>') +
     '<div class="row"><button class="danger" onclick="WF.del()">刪除這個標記</button>' + (filled(id) ? '<span style="font-size:12px;color:#c0392b">這桌已填 ' + filled(id) + ' 位，刪除後名單會移到「未安排」</span>' : '') + '</div>';
   p.classList.add('show'); ptsSt();
   var upd = function () { it.kind = $('pKind').value; it.label = $('pLabel').value.trim() || it.label; it.cap = Math.max(0, +$('pCap').value || 0); it.note = $('pNote').value; refreshMarks(); savePlan(); };
@@ -462,11 +469,12 @@ function select(id) {
 }
 function ptsSt() {
   var el = $('ptsSt'), b = $('ptsBtn'); if (!el || !SEL || !items()[SEL]) return;
-  el.textContent = pts(SEL).length + '／' + (+items()[SEL].cap || 0);
+  el.textContent = basePts(SEL).length + '／' + baseCap(SEL);
+  var ks = $('kidSt'); if (ks) ks.textContent = kidPts(SEL).length + ' 張（另加在人數外，自動標「童」）'; var kb = $('kidBtn'); if (kb) { kb.textContent = KIDID === SEL ? '👉 請點場圖上兒童椅位置' : '➕ 點場圖加一張兒童椅'; kb.className = KIDID === SEL ? 'pri' : ''; }
   b.textContent = PTSID === SEL ? '✓ 點完了' : '📍 依座位編號順序點場圖';
   b.className = PTSID === SEL ? 'pri' : '';
 }
-function closePanel() { SEL = null; PTSID = null; $('panel').classList.remove('show'); render(); }
+function closePanel() { SEL = null; PTSID = null; KIDID = null; $('panel').classList.remove('show'); render(); }
 var planTimer = null;
 function savePlan() {
   var st = $('planSt'); if (st) st.textContent = '配置未儲存…';
@@ -503,6 +511,7 @@ document.addEventListener('click', function (e) {
   var b = e.target.closest && e.target.closest('.fl'); if (!b) return;
   e.preventDefault();
   var id = b.dataset.ft, i = +b.dataset.fi, f = b.dataset.fl, t = tbl(id);
+  if (f === 'kid' && isExtraKid(id, i)) { alert('這是場地加的兒童椅位置'); return; }
   while (t.seats.length <= i) t.seats.push({ name: '' });
   var x = t.seats[i] = t.seats[i] || { name: '' };
   if (x[f]) delete x[f]; else x[f] = true;
@@ -573,14 +582,17 @@ window.WF = {
   del: function () { if (!SEL || !confirm('刪除「' + items()[SEL].label + '」？')) return; delete SEAT.plan.items[SEL]; closePanel(); savePlan(); },
   clearPool: function () { if (!confirm('確定已重新安排？這區名單會清除。')) return; Object.keys(SEAT.tables).forEach(function (id) { if (!items()[id]) delete SEAT.tables[id]; }); render(); scheduleSave(); },
   ar: function (img) { if (!img.naturalWidth) return; var a = Math.round(img.naturalHeight / img.naturalWidth * 10000) / 10000; if (a !== AR) { AR = a; if (!$('panel').classList.contains('show')) render(); } },
-  ptsMode: function () { if (!SEL) return; PTSID = PTSID === SEL ? null : SEL; if (PTSID) { TOOL = null; document.querySelectorAll('[data-tool]').forEach(function (b) { b.classList.remove('on'); }); } ptsSt(); },
-  ptsUndo: function () { if (!SEL) return; var it = items()[SEL]; it.pts = pts(SEL).slice(0, -1); refreshMarks(); ptsSt(); savePlan(); },
+  ptsMode: function () { if (!SEL) return; KIDID = null; PTSID = PTSID === SEL ? null : SEL; if (PTSID) { TOOL = null; document.querySelectorAll('[data-tool]').forEach(function (b) { b.classList.remove('on'); }); } ptsSt(); },
+  kidMode: function () { if (!SEL) return; KIDID = KIDID === SEL ? null : SEL; PTSID = null; ptsSt(); },
+  kidUndo: function () { if (!SEL) return; items()[SEL].kids = kidPts(SEL).slice(0, -1); refreshMarks(); ptsSt(); savePlan(); },
+  ptsUndo: function () { if (!SEL) return; var it = items()[SEL]; it.pts = basePts(SEL).slice(0, -1); refreshMarks(); ptsSt(); savePlan(); },
   ptsClear: function () { if (!SEL || !confirm('清除這桌所有座位點？')) return; items()[SEL].pts = []; refreshMarks(); ptsSt(); savePlan(); },
   autoSeats: autoSeats,
   importItems: function (list, replace) { if (!staffOn()) return false; SEAT.plan = SEAT.plan || { img: driveId(ORDER.layoutPlanUrl), items: {} }; if (replace) SEAT.plan.items = {}; list.forEach(function (o) { SEAT.plan.items[newId()] = { kind: o.kind || 'table', label: String(o.label), cap: +o.cap || 0, note: o.note || '', x: o.x, y: o.y }; }); savePlan(); render(); return true; },
   info: function () { return { planImg: SEAT.plan && SEAT.plan.img, latest: driveId(ORDER.layoutPlanUrl) }; },
   setPts: function (id, list) { if (!staffOn() || !items()[id]) return false; items()[id].pts = list; savePlan(); render(); return true; },
-  ids: function () { return ids().map(function (id) { return { id: id, label: items()[id].label, kind: items()[id].kind, cap: items()[id].cap }; }); },
+  ids: function () { return ids().map(function (id) { return { id: id, label: items()[id].label, kind: items()[id].kind, cap: items()[id].cap, kids: kidPts(id).length }; }); },
+  setKids: function (id, list) { if (!staffOn() || !items()[id]) return false; items()[id].kids = list; savePlan(); render(); return true; },
   applyImg: function () { SEAT.plan.img = driveId(ORDER.layoutPlanUrl); render(); savePlan(); }
 };
 load();
