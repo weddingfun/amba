@@ -40,6 +40,7 @@ header .sub{font-size:13px;opacity:.9;margin-top:3px}
 .cd i{font-style:normal;font-size:9px;line-height:1.1;background:rgba(255,255,255,.9);padding:0 2px;border-radius:3px;max-width:36px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;margin-top:1px}
 .cd i:empty{display:none}
 .chint{font-size:12px;color:var(--mute);margin:-2px 0 6px}
+.card.wide{grid-column:1/-1}.card.wide .seats{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 .si{display:flex;align-items:center;gap:4px}.si>em{font-style:normal;font-size:11px;font-weight:700;color:#9D380E;min-width:18px;text-align:right}
 .zoombar{display:flex;gap:6px;margin:8px 0}
 button,.btn{font:inherit;font-size:13px;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:6px 10px;cursor:pointer}
@@ -227,7 +228,7 @@ function cardHtml(id) {
   if (it.kind === 'zone') return '<div class="card" id="card_' + id + '"><div class="hd"><b>' + esc(it.label) + '</b></div>' + (it.note ? '<div class="zdesc">' + esc(it.note) + '</div>' : '') + '<textarea data-note="' + id + '" placeholder="需求或備註（例：放 3 個立架、拍貼機需插座）">' + esc(t.note || '') + '</textarea></div>';
   var seats = (t.seats || []).slice(), len = Math.max(cap, seats.length), s = '';
   for (var i = 0; i < len; i++) s += '<label class="si"><em>' + (i + 1) + '</em><input data-t="' + id + '" data-i="' + i + '" value="' + esc(seats[i] && seats[i].name || '') + '" placeholder="' + (i >= cap ? '加位' : '姓名') + '"></label>';
-  return '<div class="card" id="card_' + id + '"><div class="hd"><b>' + esc(it.label) + '</b><span class="pill">' + cap + ' 位</span><span class="cnt' + (n > cap ? ' over' : '') + '">已填 ' + n + '／' + cap + '</span></div>' + (it.note ? '<div class="zdesc">' + esc(it.note) + '</div>' : '') + cropHtml(id) + '<div class="seats">' + s + '</div><button class="addseat no-print" onclick="WF.addSeat(\'' + id + '\')">＋ 加一位</button><input class="note" data-note="' + id + '" style="margin-top:6px" value="' + esc(t.note || '') + '" placeholder="本桌備註（例：主桌、需兒童椅 1 張）"></div>';
+  return '<div class="card' + (pts(id).length > 20 ? ' wide' : '') + '" id="card_' + id + '"><div class="hd"><b>' + esc(it.label) + '</b><span class="pill">' + cap + ' 位</span><span class="cnt' + (n > cap ? ' over' : '') + '">已填 ' + n + '／' + cap + '</span></div>' + (it.note ? '<div class="zdesc">' + esc(it.note) + '</div>' : '') + cropHtml(id) + '<div class="seats">' + s + '</div><button class="addseat no-print" onclick="WF.addSeat(\'' + id + '\')">＋ 加一位</button><input class="note" data-note="' + id + '" style="margin-top:6px" value="' + esc(t.note || '') + '" placeholder="本桌備註（例：主桌、需兒童椅 1 張）"></div>';
 }
 function stats() {
   var cap = 0, n = 0;
