@@ -355,7 +355,8 @@ function autoSeats(force) {
     var sofas = [];
     comps.filter(function (o) { return o.c === 3 && o.n > med * 3 && o.n < med * 14 && o.n / (o.w * o.h) > 0.8 && Math.min(o.w, o.h) > side * 1.5; }).forEach(function (o) {
       var hz = o.w >= o.h, L = Math.max(o.w, o.h), S = Math.min(o.w, o.h), k = Math.max(1, Math.round(L / (S * 0.95)));
-      for (var i = 0; i < k; i++) sofas.push({ x: hz ? o.x - o.w / 2 + o.w * (i + 0.5) / k : o.x, y: hz ? o.y : o.y - o.h / 2 + o.h * (i + 0.5) / k });
+      // 米色塊＝茶几；座位在茶几內側（靠桌子中央）的白色沙發上 → 指派後往桌子方向平移
+      for (var i = 0; i < k; i++) sofas.push({ x: hz ? o.x - o.w / 2 + o.w * (i + 0.5) / k : o.x, y: hz ? o.y : o.y - o.h / 2 + o.h * (i + 0.5) / k, hz: hz, sh: S * 0.8 });
     });
     var T = tabs.map(function (id) { var it = items()[id]; return { id: id, x: it.x / 100 * W, y: it.y / 100 * H, cap: +it.cap || 0, s: [] }; });
     function fill(list, kind) {
@@ -368,6 +369,7 @@ function autoSeats(force) {
     fill(chairs, '椅子');
     T.forEach(function (t) { if (t.s.length < t.cap * 0.5) t.round = t.s.length < 4; });
     var short = T.filter(function (t) { return t.s.length < t.cap && !t.round; }), keep = T; T = short; fill(sofas, '沙發'); T = keep;
+    T.forEach(function (t) { t.s = t.s.map(function (o) { if (o.k !== '沙發') return o; return o.hz ? { x: o.x, y: o.y + (t.y > o.y ? 1 : -1) * o.sh, k: o.k } : { x: o.x + (t.x > o.x ? 1 : -1) * o.sh, y: o.y, k: o.k }; }); });
     var rep = [];
     T.forEach(function (t) {
       var s = t.s, how = s.some(function (o) { return o.k === '沙發'; }) ? '椅子＋沙發' : '椅子';
