@@ -63,6 +63,7 @@ h2{font-size:16px;margin:18px 0 8px;color:var(--g)}
 .addseat{margin-top:6px;font-size:12px;padding:4px 8px}
 .fl{flex:none;font:inherit;font-size:11px;padding:3px 5px;border:1px solid #e3d3c9;border-radius:6px;background:#fff;color:#b9a79c;cursor:pointer}
 .fl.on.kid{background:#6BA1C7;border-color:#6BA1C7;color:#fff}.fl.on.veg{background:#2e8b57;border-color:#2e8b57;color:#fff}
+.tno{width:58px;flex:none;font:inherit;font-size:15px;font-weight:700;color:#9D380E;text-align:center;padding:4px 4px;border:1px solid #e3d3c9;border-radius:6px;background:#fffdfb}
 .ttl{flex:1;min-width:0;font:inherit;font-size:14px;padding:4px 8px;border:1px solid #e3d3c9;border-radius:6px;background:#fffdfb}
 .cd s{position:absolute;top:-6px;right:-9px;text-decoration:none;font-size:8px;line-height:11px;padding:0 2px;border-radius:3px;color:#fff;background:#6BA1C7}
 .cd s.v{right:auto;left:-9px;background:#2e8b57}
@@ -81,7 +82,7 @@ h2{font-size:16px;margin:18px 0 8px;color:var(--g)}
 .empty{text-align:center;padding:40px 16px;color:var(--mute);background:#fff;border:1px solid var(--line);border-radius:10px}
 .pool span{display:inline-block;background:#f3e7e0;border-radius:6px;padding:2px 8px;margin:2px;font-size:13px}
 @media print{
-  header{background:none;color:#000;padding:0 0 6px}.bar button,.zoombar,.panel,.tools,.addseat,.no-print,.save-status,.fl:not(.on){display:none!important}.ttl{border:none;padding:0;font-weight:700}
+  header{background:none;color:#000;padding:0 0 6px}.bar button,.zoombar,.panel,.tools,.addseat,.no-print,.save-status,.fl:not(.on){display:none!important}.ttl,.tno{border:none;padding:0;font-weight:700}
   .mapbox{max-height:none;overflow:visible;border:none}.map{width:100%!important}
   .wrap{padding:0;max-width:none}.cards{grid-template-columns:repeat(3,1fr);gap:6px}
   .card{break-inside:avoid;padding:6px 8px}.seats input{border:none;border-bottom:1px solid #ccc;border-radius:0;padding:2px 4px;font-size:12px}
@@ -208,8 +209,8 @@ function render() {
 function mkHtml(id) {
   var it = items()[id], n = filled(id), cap = +it.cap || 0;
   var cls = it.kind === 'zone' ? 'zone' : (n === 0 ? '' : n > cap ? 'over' : n === cap ? 'full' : 'part');
-  var tt = it.kind === 'zone' ? '' : String(((SEAT.tables || {})[id] || {}).title || '').trim();
-  return '<div class="mk ' + cls + (SEL === id ? ' sel' : '') + '" data-id="' + id + '" style="left:' + it.x + '%;top:' + it.y + '%">' + esc(it.label) + (tt ? '<small>' + esc(tt.length > 6 ? tt.slice(0, 6) + '…' : tt) + '</small>' : '') + (it.kind === 'zone' ? '' : '<small>' + n + '/' + cap + '</small>') + '</div>';
+  var tb = (SEAT.tables || {})[id] || {}, tt = it.kind === 'zone' ? '' : String(tb.title || '').trim(), no = it.kind === 'zone' ? '' : String(tb.no || '').trim();
+  return '<div class="mk ' + cls + (SEL === id ? ' sel' : '') + '" data-id="' + id + '" style="left:' + it.x + '%;top:' + it.y + '%">' + esc(no || it.label) + (tt ? '<small>' + esc(tt.length > 6 ? tt.slice(0, 6) + '…' : tt) + '</small>' : '') + (it.kind === 'zone' ? '' : '<small>' + n + '/' + cap + '</small>') + '</div>';
 }
 function pts(id) { var p = items()[id] && items()[id].pts; return Array.isArray(p) ? p : []; }
 function seatF(id, i, f) { var t = (SEAT.tables || {})[id]; return !!(t && t.seats && t.seats[i] && t.seats[i][f]); }
@@ -249,9 +250,9 @@ function cardHtml(id) {
       '<button type="button" class="fl veg' + (x.veg ? ' on' : '') + '" data-fl="veg" data-ft="' + id + '" data-fi="' + i + '" title="素食">素</button></label>';
   }
   var tags = (nk ? '兒童椅 ' + nk : '') + (nk && nv ? '・' : '') + (nv ? '素食 ' + nv : '');
-  return '<div class="card' + (pts(id).length > 20 ? ' wide' : '') + '" id="card_' + id + '"><div class="hd"><b>' + esc(it.label) + '</b><input class="ttl" data-title="' + id + '" value="' + esc(t.title || '') + '" placeholder="桌名（例：主桌、男方同事）"><span class="pill">' + cap + ' 位</span><span class="cnt' + (n > cap ? ' over' : '') + '">已填 ' + n + '／' + cap + '</span></div>' +
+  return '<div class="card' + (pts(id).length > 20 ? ' wide' : '') + '" id="card_' + id + '"><div class="hd"><input class="tno" data-tno="' + id + '" value="' + esc(t.no || '') + '" placeholder="' + esc(it.label) + '" title="桌號（可改，例：A、B、主桌）"><input class="ttl" data-title="' + id + '" value="' + esc(t.title || '') + '" placeholder="桌名（例：主桌、男方同事）"><span class="pill">' + cap + ' 位</span><span class="cnt' + (n > cap ? ' over' : '') + '">已填 ' + n + '／' + cap + '</span></div>' +
     (it.note ? '<div class="zdesc">' + esc(it.note) + '</div>' : '') + cropHtml(id) +
-    '<div class="fhint">按「童」標記需要兒童椅、「素」標記素食' + (tags ? '　<b style="color:#9D380E">本桌：' + tags + '</b>' : '') + '</div>' +
+    '<div class="fhint">桌號可自行修改（例：A、B）；按「童」標記需要兒童椅、「素」標記素食' + (tags ? '　<b style="color:#9D380E">本桌：' + tags + '</b>' : '') + '</div>' +
     '<div class="seats">' + s + '</div><input class="note" data-note="' + id + '" style="margin-top:6px" value="' + esc(t.note || '') + '" placeholder="本桌備註"></div>';
 }
 function stats() {
@@ -459,6 +460,7 @@ document.addEventListener('input', function (e) {
     document.querySelectorAll('[data-cid="' + el.dataset.t + '"][data-ci="' + i + '"]').forEach(function (c) { c.classList.toggle('f', !!nm); c.querySelector('i').textContent = nm; });
     refreshCardCount(el.dataset.t); refreshMarks(); seatHl(el.dataset.t, i); scheduleSave();
   } else if (el.dataset.note !== undefined) { tbl(el.dataset.note).note = el.value; scheduleSave(); }
+  else if (el.dataset.tno !== undefined) { tbl(el.dataset.tno).no = el.value.trim(); refreshMarks(); scheduleSave(); }
   else if (el.dataset.title !== undefined) { tbl(el.dataset.title).title = el.value; refreshMarks(); scheduleSave(); }
 });
 
