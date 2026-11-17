@@ -343,6 +343,136 @@ function jump(id) {
 }
 
 // ── 想樂：自動偵測座位 ──
+// 座位偵測核心（純函式，頁面與測試共用）
+// D: RGBA Uint8 array, W/H: 尺寸, tables: [{x,y,cap}]（x,y 為 %）
+// 回傳 [{pts:[[x%,y%]], how, got, warn}]
+function wfDetectSeats(D0, W0, H0, tables) {
+  // 1) 統一重畫到標準寬度（只放大縮小，不改比例與配置）
+  var TW = 1600, sc = TW / W0, W = TW, H = Math.round(H0 * sc), D = new Uint8ClampedArray(W * H * 4);
+  for (var y = 0; y < H; y++) {
+    var fy = Math.min(H0 - 1, (y + 0.5) / sc - 0.5), y0 = Math.max(0, Math.floor(fy)), y1 = Math.min(H0 - 1, y0 + 1), wy = Math.max(0, fy - y0);
+    for (var x = 0; x < W; x++) {
+      var fx = Math.min(W0 - 1, (x + 0.5) / sc - 0.5), x0 = Math.max(0, Math.floor(fx)), x1 = Math.min(W0 - 1, x0 + 1), wx = Math.max(0, fx - x0);
+      var a = (y0 * W0 + x0) * 4, b = (y0 * W0 + x1) * 4, c = (y1 * W0 + x0) * 4, d = (y1 * W0 + x1) * 4, o = (y * W + x) * 4;
+      for (var k = 0; k < 3; k++) D[o + k] = (D0[a + k] * (1 - wx) + D0[b + k] * wx) * (1 - wy) + (D0[c + k] * (1 - wx) + D0[d + k] * wx) * wy;
+      D[o + 3] = 255;
+    }
+  }
+  // 2) 顏色分類
+  function cls(i) {
+    var r = D[i], g = D[i + 1], b = D[i + 2];
+    if (r > 195 && r - g > 35 && b - g > 10 && b > 140) return 1;                  // 粉紅椅
+    if (b > 170 && b - r > 35 && g > 110 && g - r > 10) return 2;                  // 藍椅（深／淺）
+    if (r > 220 && g > 200 && b > 140 && b < 215 && r - b > 25 && r - g < 30) return 3; // 米色（茶几）
+    return 0;
+  }
+  var lab = new Uint8Array(W * H), comps = [], stack = new Int32Array(W * H);
+  for (var yy = 0; yy < H; yy++) for (var xx = 0; xx < W; xx++) {
+    var p0 = yy * W + xx; if (lab[p0]) continue; var c0 = cls(p0 * 4); if (!c0) continue;
+    var sp = 0, n = 0, sx = 0, sy = 0, bx0 = xx, bx1 = xx, by0 = yy, by1 = yy; stack[sp++] = p0; lab[p0] = 1;
+    while (sp) {
+      var q = stack[--sp], qx = q % W, qy = (q - qx) / W; n++; sx += qx; sy += qy;
+      if (qx < bx0) bx0 = qx; if (qx > bx1) bx1 = qx; if (qy < by0) by0 = qy; if (qy > by1) by1 = qy;
+      if (qx + 1 < W && !lab[q + 1] && cls((q + 1) * 4) === c0) { lab[q + 1] = 1; stack[sp++] = q + 1; }
+      if (qx > 0 && !lab[q - 1] && cls((q - 1) * 4) === c0) { lab[q - 1] = 1; stack[sp++] = q - 1; }
+      if (qy + 1 < H && !lab[q + W] && cls((q + W) * 4) === c0) { lab[q + W] = 1; stack[sp++] = q + W; }
+      if (qy > 0 && !lab[q - W] && cls((q - W) * 4) === c0) { lab[q - W] = 1; stack[sp++] = q - W; }
+    }
+    if (n >= 20) comps.push({ c: c0, n: n, x: sx / n, y: sy / n, w: bx1 - bx0 + 1, h: by1 - by0 + 1 });
+  }
+  // 3) 椅子＝方形色塊（大小取中位數）
+  var sqs = comps.filter(function (o) { return o.c !== 3 && o.w / o.h > 0.65 && o.w / o.h < 1.55 && o.n / (o.w * o.h) > 0.55; });
+  var ns = sqs.map(function (o) { return o.n; }).sort(function (a, b) { return a - b; });
+  var med = ns.length ? ns[Math.floor(ns.length / 2)] : 300, side = Math.sqrt(med);
+  var chairs = sqs.filter(function (o) { return o.n > med * 0.45 && o.n < med * 2.2; });
+  // 4) 茶几（米色實心矩形）→ 依長短邊拆位
+  var sofas = [];
+  comps.filter(function (o) { return o.c === 3 && o.n > med * 3 && o.n < med * 16 && o.n / (o.w * o.h) > 0.8 && Math.min(o.w, o.h) > side * 1.5; }).forEach(function (o, gi) {
+    var hz = o.w >= o.h, L = Math.max(o.w, o.h), S = Math.min(o.w, o.h), k = Math.max(1, Math.round(L / (S * 0.95)));
+    for (var i = 0; i < k; i++) sofas.push({ x: hz ? o.x - o.w / 2 + o.w * (i + 0.5) / k : o.x, y: hz ? o.y : o.y - o.h / 2 + o.h * (i + 0.5) / k, hz: hz, sh: S * 0.8, g: gi, gx: o.x, gy: o.y, gl: L });
+  });
+  // 5) 依距離＋人數上限分配
+  // 桌面物件：米色區塊（相鄰段落合併，如長桌的分段）
+  var cb = comps.filter(function (o) { return o.c === 3 && o.n > med * 1.5; }).map(function (o) { return { x0: o.x - o.w / 2, x1: o.x + o.w / 2, y0: o.y - o.h / 2, y1: o.y + o.h / 2 }; });
+  // 兩塊之間是「線條」（暗色）才合併成同一張桌；中間是白色走道就不合併
+  function whiteGap(A, B, horiz) {
+    var n = 0, w = 0;
+    if (horiz) { var gx0 = Math.min(A.x1, B.x1), gx1 = Math.max(A.x0, B.x0), y0 = Math.max(A.y0, B.y0), y1 = Math.min(A.y1, B.y1);
+      for (var yy = y0 + (y1 - y0) * 0.2; yy <= y1 - (y1 - y0) * 0.2; yy += 2) for (var xx = gx0; xx <= gx1; xx++) { var i = (Math.round(yy) * W + Math.round(xx)) * 4; n++; if (D[i] > 235 && D[i + 1] > 235 && D[i + 2] > 235) w++; } }
+    else { var gy0 = Math.min(A.y1, B.y1), gy1 = Math.max(A.y0, B.y0), x0 = Math.max(A.x0, B.x0), x1 = Math.min(A.x1, B.x1);
+      for (var xx2 = x0 + (x1 - x0) * 0.2; xx2 <= x1 - (x1 - x0) * 0.2; xx2 += 2) for (var yy2 = gy0; yy2 <= gy1; yy2++) { var i2 = (Math.round(yy2) * W + Math.round(xx2)) * 4; n++; if (D[i2] > 235 && D[i2 + 1] > 235 && D[i2 + 2] > 235) w++; } }
+    return n ? w / n > 0.25 : false;
+  }
+  var gap = side * 0.9, merged = true;
+  while (merged) {
+    merged = false;
+    for (var i1 = 0; i1 < cb.length && !merged; i1++) for (var i2 = i1 + 1; i2 < cb.length; i2++) {
+      var A = cb[i1], B = cb[i2];
+      var ovY = Math.min(A.y1, B.y1) - Math.max(A.y0, B.y0), ovX = Math.min(A.x1, B.x1) - Math.max(A.x0, B.x0);
+      var gx = Math.max(A.x0, B.x0) - Math.min(A.x1, B.x1), gyy = Math.max(A.y0, B.y0) - Math.min(A.y1, B.y1);
+      var hj = ovY > Math.min(A.y1 - A.y0, B.y1 - B.y0) * 0.6 && gx < gap && !whiteGap(A, B, true);
+      var vj = ovX > Math.min(A.x1 - A.x0, B.x1 - B.x0) * 0.6 && gyy < gap && !whiteGap(A, B, false);
+      if (hj || vj) { cb[i1] = { x0: Math.min(A.x0, B.x0), x1: Math.max(A.x1, B.x1), y0: Math.min(A.y0, B.y0), y1: Math.max(A.y1, B.y1) }; cb.splice(i2, 1); merged = true; break; }
+    }
+  }
+  var T = tables.map(function (t, i) {
+    var x = t.x / 100 * W, y = t.y / 100 * H, r = null;
+    cb.forEach(function (b) { if (x >= b.x0 - side && x <= b.x1 + side && y >= b.y0 - side && y <= b.y1 + side) { if (!r || (b.x1 - b.x0) * (b.y1 - b.y0) > (r.x1 - r.x0) * (r.y1 - r.y0)) r = b; } });
+    return { i: i, x: x, y: y, cap: +t.cap || 0, s: [], r: r };
+  });
+  T.forEach(function (t) { if (t.r && T.some(function (u) { return u !== t && u.r === t.r; })) t.shared = true; });
+  T.forEach(function (t) { if (t.shared) t.r = null; });   // 兩桌被合成同一塊時改用標記位置
+  function dist(t, o) { if (!t.r) return Math.hypot(t.x - o.x, t.y - o.y); var dx = Math.max(t.r.x0 - o.x, 0, o.x - t.r.x1), dy = Math.max(t.r.y0 - o.y, 0, o.y - t.r.y1); return Math.hypot(dx, dy); }
+  function fill(list, kind, TT) {
+    var cand = [];
+    list.forEach(function (o, i) { o.k = kind; TT.forEach(function (t) { var d = dist(t, o); if (Math.hypot(t.x - o.x, t.y - o.y) < W * 0.2) cand.push({ i: i, o: o, t: t, d: d }); }); });
+    cand.sort(function (a, b) { return a.d - b.d; });
+    var used = {};
+    cand.forEach(function (c) { if (used[c.i] || c.t.s.length >= c.t.cap) return; used[c.i] = 1; c.t.s.push(c.o); });
+  }
+  fill(chairs, '椅子', T);
+  T.forEach(function (t) { t.round = t.s.length < Math.min(4, t.cap * 0.5); if (t.round) t.s = []; });
+  fill(sofas, '沙發', T.filter(function (t) { return t.s.length < t.cap && !t.round; }));
+  T.forEach(function (t) { t.s = t.s.map(function (o) { if (o.k !== '沙發') return o; var m = { k: o.k, g: o.g, gx: o.gx, gy: o.gy, gl: o.gl }; if (o.hz) { m.x = o.x; m.y = o.y + (t.y > o.y ? 1 : -1) * o.sh; } else { m.x = o.x + (t.x > o.x ? 1 : -1) * o.sh; m.y = o.y; } return m; }); });
+  // 6) 排號
+  function readOrder(arr, gy, gx, tol) {
+    var srt = arr.slice().sort(function (a, b) { return gy(a) - gy(b); }), rows = [];
+    srt.forEach(function (o) { var r = rows[rows.length - 1]; if (r && Math.abs(gy(o) - r.y0) < tol) r.a.push(o); else rows.push({ y0: gy(o), a: [o] }); });
+    var out = []; rows.forEach(function (r) { r.a.sort(function (a, b) { return gx(a) - gx(b); }).forEach(function (o) { out.push(o); }); }); return out;
+  }
+  return T.map(function (t) {
+    var s = t.s, list, how = s.some(function (o) { return o.k === '沙發'; }) ? '椅子＋沙發' : '椅子', warn = [];
+    if (t.round || s.length < t.cap * 0.5) {
+      var ci = (Math.round(t.y) * W + Math.round(t.x)) * 4, cc = [D[ci], D[ci + 1], D[ci + 2]], rr = [];
+      for (var a = 0; a < 16; a++) {
+        var ang = a / 16 * Math.PI * 2, d = 2;
+        for (; d < W * 0.15; d++) { var px = Math.round(t.x + Math.cos(ang) * d), py = Math.round(t.y + Math.sin(ang) * d); if (px < 0 || py < 0 || px >= W || py >= H) break; var ii = (py * W + px) * 4; if (Math.abs(D[ii] - cc[0]) + Math.abs(D[ii + 1] - cc[1]) + Math.abs(D[ii + 2] - cc[2]) > 60) break; }
+        rr.push(d);
+      }
+      rr.sort(function (a, b) { return a - b; }); var R = rr[Math.floor(rr.length / 2)] * 0.82; if (R < side * 2) R = W * 0.04;
+      list = []; for (var k2 = 0; k2 < t.cap; k2++) { var an = -Math.PI / 2 + k2 / t.cap * Math.PI * 2; list.push([t.x + Math.cos(an) * R, t.y + Math.sin(an) * R]); }
+      how = '桌緣平均排';
+    } else {
+      var gs = {};
+      s.forEach(function (o) { if (o.k === '沙發') (gs[o.g] = gs[o.g] || { cx: o.gx, cy: o.gy, l: o.gl, a: [] }).a.push(o); });
+      var glist = Object.keys(gs).map(function (k) { return gs[k]; });
+      s.forEach(function (o) {
+        if (o.k === '沙發') return;
+        var best = null, bd = 1e9; glist.forEach(function (g) { if (!g.l) return; var dd = Math.hypot(g.cx - o.x, g.cy - o.y); if (dd < bd) { bd = dd; best = g; } });
+        if (best && bd < best.l * 1.1) best.a.push(o); else glist.push({ cx: o.x, cy: o.y, l: 0, a: [o] });
+      });
+      list = [];
+      readOrder(glist, function (g) { return g.cy; }, function (g) { return g.cx; }, side * 2).forEach(function (g) {
+        readOrder(g.a, function (o) { return o.y; }, function (o) { return o.x; }, side * 1.2).forEach(function (o) { list.push([o.x, o.y]); });
+      });
+      // 可疑：離桌子特別遠的座位（可能抓到旁邊的椅子）
+      var ds = list.map(function (p) { return Math.hypot(p[0] - t.x, p[1] - t.y); }), sd = ds.slice().sort(function (a, b) { return a - b; }), mdn = sd[Math.floor(sd.length / 2)] || 1;
+      ds.forEach(function (d, i) { if (d > mdn * 2.2 && d > side * 6) warn.push(i + 1); });
+    }
+    return { pts: list.map(function (p) { return [Math.round(p[0] / W * 10000) / 100, Math.round(p[1] / H * 10000) / 100]; }), how: how, got: list.length, cap: t.cap, warn: warn };
+  });
+}
+
 function autoSeats(force) {
   if (!staffOn() || !SEAT.plan) return Promise.resolve(null);
   var tabs = ids().filter(function (id) { return items()[id].kind !== 'zone' && (+items()[id].cap || 0) > 0; });
@@ -353,85 +483,10 @@ function autoSeats(force) {
     var W = bm.width, H = bm.height, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     var cx = cv.getContext('2d'); cx.drawImage(bm, 0, 0); var D = cx.getImageData(0, 0, W, H).data;
     AR = Math.round(H / W * 10000) / 10000;
-    function cls(i) {
-      var r = D[i], g = D[i + 1], b = D[i + 2];
-      if (r > 200 && g > 110 && g < 200 && b > 150 && r - g > 40) return 1;                 // 粉紅椅
-      if (b > 180 && b - r > 40 && g > 120) return 2;                                      // 藍椅
-      if (r > 225 && g > 205 && b > 140 && b < 215 && r - b > 25) return 3;                 // 米色（沙發）
-      return 0;
-    }
-    var lab = new Int32Array(W * H), comps = [];
-    for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
-      var p0 = y * W + x; if (lab[p0]) continue; var c = cls(p0 * 4); if (!c) continue;
-      var stack = [p0], n = 0, sx = 0, sy = 0, x0 = x, x1 = x, y0 = y, y1 = y; lab[p0] = 1;
-      while (stack.length) {
-        var q = stack.pop(), qx = q % W, qy = (q - qx) / W; n++; sx += qx; sy += qy;
-        if (qx < x0) x0 = qx; if (qx > x1) x1 = qx; if (qy < y0) y0 = qy; if (qy > y1) y1 = qy;
-        var nb = [q + 1, q - 1, q + W, q - W];
-        for (var k = 0; k < 4; k++) { var np = nb[k]; if (np < 0 || np >= W * H || lab[np]) continue; if ((k < 2) && Math.floor(np / W) !== qy) continue; if (cls(np * 4) !== c) continue; lab[np] = 1; stack.push(np); }
-      }
-      if (n >= 6) comps.push({ c: c, n: n, x: sx / n, y: sy / n, w: x1 - x0 + 1, h: y1 - y0 + 1 });
-    }
-    var sq = comps.filter(function (o) { return o.c !== 3 && o.w / o.h > 0.7 && o.w / o.h < 1.4; }).map(function (o) { return o.n; }).sort(function (a, b) { return a - b; });
-    var med = sq.length ? sq[Math.floor(sq.length / 2)] : 120, side = Math.sqrt(med);
-    var chairs = comps.filter(function (o) { return o.c !== 3 && o.w / o.h > 0.7 && o.w / o.h < 1.4 && o.n > med * 0.5 && o.n < med * 2; });
-    var sofas = [];
-    comps.filter(function (o) { return o.c === 3 && o.n > med * 3 && o.n < med * 14 && o.n / (o.w * o.h) > 0.8 && Math.min(o.w, o.h) > side * 1.5; }).forEach(function (o, gi) {
-      var hz = o.w >= o.h, L = Math.max(o.w, o.h), S = Math.min(o.w, o.h), k = Math.max(1, Math.round(L / (S * 0.95)));
-      // 米色塊＝茶几；座位在茶几內側（靠桌子中央）的白色沙發上 → 指派後往桌子方向平移
-      for (var i = 0; i < k; i++) sofas.push({ x: hz ? o.x - o.w / 2 + o.w * (i + 0.5) / k : o.x, y: hz ? o.y : o.y - o.h / 2 + o.h * (i + 0.5) / k, hz: hz, sh: S * 0.8, g: gi, gx: o.x, gy: o.y, gl: L });
-    });
-    var T = tabs.map(function (id) { var it = items()[id]; return { id: id, x: it.x / 100 * W, y: it.y / 100 * H, cap: +it.cap || 0, s: [] }; });
-    function fill(list, kind) {
-      var cand = [];
-      list.forEach(function (o, i) { o.k = kind; T.forEach(function (t) { var d = Math.hypot(t.x - o.x, t.y - o.y); if (d < W * 0.2) cand.push({ i: i, o: o, t: t, d: d }); }); });
-      cand.sort(function (a, b) { return a.d - b.d; });
-      var used = {};
-      cand.forEach(function (c) { if (used[c.i] || c.t.s.length >= c.t.cap) return; used[c.i] = 1; c.t.s.push(c.o); });
-    }
-    fill(chairs, '椅子');
-    T.forEach(function (t) { if (t.s.length < t.cap * 0.5) t.round = t.s.length < 4; });
-    var short = T.filter(function (t) { return t.s.length < t.cap && !t.round; }), keep = T; T = short; fill(sofas, '沙發'); T = keep;
-    T.forEach(function (t) { t.s = t.s.map(function (o) { if (o.k !== '沙發') return o; var n = { k: o.k, g: o.g, gx: o.gx, gy: o.gy, gl: o.gl }; if (o.hz) { n.x = o.x; n.y = o.y + (t.y > o.y ? 1 : -1) * o.sh; } else { n.x = o.x + (t.x > o.x ? 1 : -1) * o.sh; n.y = o.y; } return n; }); });
-    var rep = [];
-    T.forEach(function (t) {
-      var s = t.s, how = s.some(function (o) { return o.k === '沙發'; }) ? '椅子＋沙發' : '椅子';
-      var list;
-      if (t.round || s.length < t.cap * 0.5) {     // 沒畫椅子（圓桌）→ 依桌緣平均排
-        var cc = cx.getImageData(Math.round(t.x), Math.round(t.y), 1, 1).data, rr = [], dirs = 16;
-        for (var a = 0; a < dirs; a++) {
-          var ang = a / dirs * Math.PI * 2, d = 2;
-          for (; d < W * 0.15; d++) { var px = Math.round(t.x + Math.cos(ang) * d), py = Math.round(t.y + Math.sin(ang) * d); if (px < 0 || py < 0 || px >= W || py >= H) break; var ii = (py * W + px) * 4; if (Math.abs(D[ii] - cc[0]) + Math.abs(D[ii + 1] - cc[1]) + Math.abs(D[ii + 2] - cc[2]) > 60) break; }
-          rr.push(d);
-        }
-        rr.sort(function (a, b) { return a - b; }); var R = rr[Math.floor(rr.length / 2)] * 0.82; if (R < side * 2) R = W * 0.04;
-        list = []; for (var k2 = 0; k2 < t.cap; k2++) { var an = -Math.PI / 2 + k2 / t.cap * Math.PI * 2; list.push([t.x + Math.cos(an) * R, t.y + Math.sin(an) * R]); }
-        how = '桌緣平均排';
-      } else {
-        // 依閱讀順序：由上到下分排，每排由左到右；有茶几時同一張茶几的座位連號
-        var readOrder = function (arr, getY, getX, tol) {
-          var srt = arr.slice().sort(function (a, b) { return getY(a) - getY(b); }), rows = [];
-          srt.forEach(function (o) { var r = rows[rows.length - 1]; if (r && Math.abs(getY(o) - r.y0) < tol) r.a.push(o); else rows.push({ y0: getY(o), a: [o] }); });
-          var out = []; rows.forEach(function (r) { r.a.sort(function (a, b) { return getX(a) - getX(b); }).forEach(function (o) { out.push(o); }); }); return out;
-        };
-        var gs = {};
-        s.forEach(function (o) { if (o.k === '沙發') (gs[o.g] = gs[o.g] || { cx: o.gx, cy: o.gy, l: o.gl, a: [] }).a.push(o); });
-        var glist = Object.keys(gs).map(function (k) { return gs[k]; });
-        s.forEach(function (o) {
-          if (o.k === '沙發') return;
-          var best = null, bd = 1e9; glist.forEach(function (g) { var d = Math.hypot(g.cx - o.x, g.cy - o.y); if (d < bd) { bd = d; best = g; } });
-          if (best && bd < best.l * 1.1) best.a.push(o); else glist.push({ cx: o.x, cy: o.y, l: 0, a: [o] });
-        });
-        list = [];
-        readOrder(glist, function (g) { return g.cy; }, function (g) { return g.cx; }, side * 2).forEach(function (g) {
-          readOrder(g.a, function (o) { return o.y; }, function (o) { return o.x; }, side * 1.2).forEach(function (o) { list.push([o.x, o.y]); });
-        });
-      }
-      items()[t.id].pts = list.map(function (p) { return [Math.round(p[0] / W * 10000) / 100, Math.round(p[1] / H * 10000) / 100]; });
-      rep.push({ label: items()[t.id].label, got: list.length, cap: t.cap, how: how });
-    });
+    var res = wfDetectSeats(D, W, H, tabs.map(function (id) { var it = items()[id]; return { x: it.x, y: it.y, cap: +it.cap || 0 }; }));
+    var rep = res.map(function (r, i) { var it = items()[tabs[i]]; it.pts = r.pts; return { label: it.label, got: r.got, cap: r.cap, how: r.how, warn: r.warn }; });
     SEAT.plan.ar = AR; savePlan(); render();
-    var html = rep.map(function (r) { return '<span style="margin-right:10px;' + (r.got < r.cap ? 'color:#c0392b' : '') + '">' + esc(r.label) + '：' + r.got + '/' + r.cap + (r.how === '椅子' ? '' : '（' + r.how + '）') + (r.got < r.cap ? ' ⚠️' : ' ✓') + '</span>'; }).join('');
+    var html = rep.map(function (r) { var bad = r.got < r.cap || r.warn.length; return '<span style="margin-right:10px;' + (bad ? 'color:#c0392b;font-weight:700' : '') + '">' + esc(r.label) + '：' + r.got + '/' + r.cap + (r.how === '椅子' ? '' : '（' + r.how + '）') + (r.warn.length ? '（請檢查 ' + r.warn.join('、') + ' 號）' : '') + (bad ? ' ⚠️' : ' ✓') + '</span>'; }).join('');
     var st2 = $('autoSt'); if (st2) st2.innerHTML = '偵測完成，請看下方各桌特寫確認：' + html + '<br>不對的桌：點桌號 →「清除座位點」→「📍 依座位編號順序點場圖」手動點。';
     return rep;
   }).catch(function (e) { var st3 = $('autoSt'); if (st3) st3.textContent = '偵測失敗：' + e.message; return null; });
