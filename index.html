@@ -353,10 +353,10 @@ function autoSeats(force) {
     var med = sq.length ? sq[Math.floor(sq.length / 2)] : 120, side = Math.sqrt(med);
     var chairs = comps.filter(function (o) { return o.c !== 3 && o.w / o.h > 0.7 && o.w / o.h < 1.4 && o.n > med * 0.5 && o.n < med * 2; });
     var sofas = [];
-    comps.filter(function (o) { return o.c === 3 && o.n > med * 3 && o.n < med * 14 && o.n / (o.w * o.h) > 0.8 && Math.min(o.w, o.h) > side * 1.5; }).forEach(function (o) {
+    comps.filter(function (o) { return o.c === 3 && o.n > med * 3 && o.n < med * 14 && o.n / (o.w * o.h) > 0.8 && Math.min(o.w, o.h) > side * 1.5; }).forEach(function (o, gi) {
       var hz = o.w >= o.h, L = Math.max(o.w, o.h), S = Math.min(o.w, o.h), k = Math.max(1, Math.round(L / (S * 0.95)));
       // 米色塊＝茶几；座位在茶几內側（靠桌子中央）的白色沙發上 → 指派後往桌子方向平移
-      for (var i = 0; i < k; i++) sofas.push({ x: hz ? o.x - o.w / 2 + o.w * (i + 0.5) / k : o.x, y: hz ? o.y : o.y - o.h / 2 + o.h * (i + 0.5) / k, hz: hz, sh: S * 0.8 });
+      for (var i = 0; i < k; i++) sofas.push({ x: hz ? o.x - o.w / 2 + o.w * (i + 0.5) / k : o.x, y: hz ? o.y : o.y - o.h / 2 + o.h * (i + 0.5) / k, hz: hz, sh: S * 0.8, g: gi, gx: o.x, gy: o.y, gl: L });
     });
     var T = tabs.map(function (id) { var it = items()[id]; return { id: id, x: it.x / 100 * W, y: it.y / 100 * H, cap: +it.cap || 0, s: [] }; });
     function fill(list, kind) {
@@ -369,7 +369,7 @@ function autoSeats(force) {
     fill(chairs, '椅子');
     T.forEach(function (t) { if (t.s.length < t.cap * 0.5) t.round = t.s.length < 4; });
     var short = T.filter(function (t) { return t.s.length < t.cap && !t.round; }), keep = T; T = short; fill(sofas, '沙發'); T = keep;
-    T.forEach(function (t) { t.s = t.s.map(function (o) { if (o.k !== '沙發') return o; return o.hz ? { x: o.x, y: o.y + (t.y > o.y ? 1 : -1) * o.sh, k: o.k } : { x: o.x + (t.x > o.x ? 1 : -1) * o.sh, y: o.y, k: o.k }; }); });
+    T.forEach(function (t) { t.s = t.s.map(function (o) { if (o.k !== '沙發') return o; var n = { k: o.k, g: o.g, gx: o.gx, gy: o.gy, gl: o.gl }; if (o.hz) { n.x = o.x; n.y = o.y + (t.y > o.y ? 1 : -1) * o.sh; } else { n.x = o.x + (t.x > o.x ? 1 : -1) * o.sh; n.y = o.y; } return n; }); });
     var rep = [];
     T.forEach(function (t) {
       var s = t.s, how = s.some(function (o) { return o.k === '沙發'; }) ? '椅子＋沙發' : '椅子';
@@ -385,10 +385,24 @@ function autoSeats(force) {
         list = []; for (var k2 = 0; k2 < t.cap; k2++) { var an = -Math.PI / 2 + k2 / t.cap * Math.PI * 2; list.push([t.x + Math.cos(an) * R, t.y + Math.sin(an) * R]); }
         how = '桌緣平均排';
       } else {
-        // 依閱讀順序：由上到下分排，每排由左到右
-        var srt = s.slice().sort(function (a, b) { return a.y - b.y; }), rows = [];
-        srt.forEach(function (o) { var r = rows[rows.length - 1]; if (r && Math.abs(o.y - r.y0) < side * 1.2) r.a.push(o); else rows.push({ y0: o.y, a: [o] }); });
-        list = []; rows.forEach(function (r) { r.a.sort(function (a, b) { return a.x - b.x; }).forEach(function (o) { list.push([o.x, o.y]); }); });
+        // 依閱讀順序：由上到下分排，每排由左到右；有茶几時同一張茶几的座位連號
+        var readOrder = function (arr, getY, getX, tol) {
+          var srt = arr.slice().sort(function (a, b) { return getY(a) - getY(b); }), rows = [];
+          srt.forEach(function (o) { var r = rows[rows.length - 1]; if (r && Math.abs(getY(o) - r.y0) < tol) r.a.push(o); else rows.push({ y0: getY(o), a: [o] }); });
+          var out = []; rows.forEach(function (r) { r.a.sort(function (a, b) { return getX(a) - getX(b); }).forEach(function (o) { out.push(o); }); }); return out;
+        };
+        var gs = {};
+        s.forEach(function (o) { if (o.k === '沙發') (gs[o.g] = gs[o.g] || { cx: o.gx, cy: o.gy, l: o.gl, a: [] }).a.push(o); });
+        var glist = Object.keys(gs).map(function (k) { return gs[k]; });
+        s.forEach(function (o) {
+          if (o.k === '沙發') return;
+          var best = null, bd = 1e9; glist.forEach(function (g) { var d = Math.hypot(g.cx - o.x, g.cy - o.y); if (d < bd) { bd = d; best = g; } });
+          if (best && bd < best.l * 1.1) best.a.push(o); else glist.push({ cx: o.x, cy: o.y, l: 0, a: [o] });
+        });
+        list = [];
+        readOrder(glist, function (g) { return g.cy; }, function (g) { return g.cx; }, side * 2).forEach(function (g) {
+          readOrder(g.a, function (o) { return o.y; }, function (o) { return o.x; }, side * 1.2).forEach(function (o) { list.push([o.x, o.y]); });
+        });
       }
       items()[t.id].pts = list.map(function (p) { return [Math.round(p[0] / W * 10000) / 100, Math.round(p[1] / H * 10000) / 100]; });
       rep.push({ label: items()[t.id].label, got: list.length, cap: t.cap, how: how });
