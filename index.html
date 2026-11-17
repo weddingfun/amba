@@ -174,7 +174,9 @@ function render() {
       '<div class="tools" style="margin-top:8px"><span style="font-size:13px">新增：</span>' +
       ['8', '10', '12', '16'].map(function (n) { return '<button data-tool="t' + n + '" onclick="WF.tool(\'t' + n + '\')">' + n + 'P 桌</button>'; }).join('') +
       '<button data-tool="tc" onclick="WF.tool(\'tc\')">自訂人數</button><button data-tool="z" onclick="WF.tool(\'z\')">區域（不排座位）</button>' +
-      '<span id="planSt" style="font-size:12px;color:#8a7568;margin-left:6px"></span></div>';
+      '<span id="planSt" style="font-size:12px;color:#8a7568;margin-left:6px"></span></div>' +
+      '<div class="tools" style="margin-top:8px"><button class="pri" onclick="WF.autoSeats()">🤖 自動偵測座位</button><span style="font-size:12px;color:#8a7568">先把每一桌標在桌子中央、設好人數，再按這裡；會依場圖上的椅子自動排座位編號（順時針）</span></div>' +
+      '<div id="autoSt" style="font-size:13px;margin-top:6px"></div>';
   } else sb.style.display = 'none';
 
   if (!img) { $('main').innerHTML = '<div class="empty">正式場圖準備中，完成後想樂創意會通知您填寫座位表 🙏</div>'; stats(); return; }
@@ -290,6 +292,77 @@ function jump(id) {
   HL = id; document.querySelectorAll('.card.hl').forEach(function (c) { c.classList.remove('hl'); });
   var c = $('card_' + id); if (!c) return; c.classList.add('hl'); c.scrollIntoView({ behavior: 'smooth', block: 'center' });
   var f = c.querySelector('.seats input'); if (f) { var empty = Array.prototype.filter.call(c.querySelectorAll('.seats input'), function (x) { return !x.value; })[0]; setTimeout(function () { (empty || f).focus({ preventScroll: true }); }, 400); }
+}
+
+// ── 想樂：自動偵測座位 ──
+function autoSeats(force) {
+  if (!staffOn() || !SEAT.plan) return Promise.resolve(null);
+  var tabs = ids().filter(function (id) { return items()[id].kind !== 'zone' && (+items()[id].cap || 0) > 0; });
+  if (!tabs.length) { alert('請先標出桌子'); return Promise.resolve(null); }
+  if (!force && tabs.some(function (id) { return pts(id).length; }) && !confirm('會重新排所有桌的座位點（已填的名字不會刪，但編號位置可能改變），確定？')) return Promise.resolve(null);
+  var st = $('autoSt'); if (st) st.textContent = '偵測中…';
+  return fetch(imgUrl(SEAT.plan.img)).then(function (r) { return r.blob(); }).then(createImageBitmap).then(function (bm) {
+    var W = bm.width, H = bm.height, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    var cx = cv.getContext('2d'); cx.drawImage(bm, 0, 0); var D = cx.getImageData(0, 0, W, H).data;
+    AR = Math.round(H / W * 10000) / 10000;
+    function cls(i) {
+      var r = D[i], g = D[i + 1], b = D[i + 2];
+      if (r > 200 && g > 110 && g < 200 && b > 150 && r - g > 40) return 1;                 // 粉紅椅
+      if (b > 180 && b - r > 50 && g > 120) return 2;                                      // 藍椅
+      if (r > 225 && g > 205 && b > 140 && b < 215 && r - b > 25) return 3;                 // 米色（沙發）
+      return 0;
+    }
+    var lab = new Int32Array(W * H), comps = [];
+    for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
+      var p0 = y * W + x; if (lab[p0]) continue; var c = cls(p0 * 4); if (!c) continue;
+      var stack = [p0], n = 0, sx = 0, sy = 0, x0 = x, x1 = x, y0 = y, y1 = y; lab[p0] = 1;
+      while (stack.length) {
+        var q = stack.pop(), qx = q % W, qy = (q - qx) / W; n++; sx += qx; sy += qy;
+        if (qx < x0) x0 = qx; if (qx > x1) x1 = qx; if (qy < y0) y0 = qy; if (qy > y1) y1 = qy;
+        var nb = [q + 1, q - 1, q + W, q - W];
+        for (var k = 0; k < 4; k++) { var np = nb[k]; if (np < 0 || np >= W * H || lab[np]) continue; if ((k < 2) && Math.floor(np / W) !== qy) continue; if (cls(np * 4) !== c) continue; lab[np] = 1; stack.push(np); }
+      }
+      if (n >= 20) comps.push({ c: c, n: n, x: sx / n, y: sy / n, w: x1 - x0 + 1, h: y1 - y0 + 1 });
+    }
+    var sq = comps.filter(function (o) { return o.c !== 3 && o.w / o.h > 0.7 && o.w / o.h < 1.4; }).map(function (o) { return o.n; }).sort(function (a, b) { return a - b; });
+    var med = sq.length ? sq[Math.floor(sq.length / 2)] : 120, side = Math.sqrt(med);
+    var chairs = comps.filter(function (o) { return o.c !== 3 && o.w / o.h > 0.7 && o.w / o.h < 1.4 && o.n > med * 0.5 && o.n < med * 2; });
+    var sofas = [];
+    comps.filter(function (o) { return o.c === 3 && o.n > med * 3 && o.n < med * 14; }).forEach(function (o) {
+      var r = o.w / o.h, k = r > 1.4 ? Math.max(1, Math.round(o.w / (side * 2))) : r < 0.71 ? Math.max(1, Math.round(o.h / (side * 2))) : 1;
+      for (var i = 0; i < k; i++) sofas.push({ x: r > 1.4 ? o.x - o.w / 2 + o.w * (i + 0.5) / k : o.x, y: r < 0.71 ? o.y - o.h / 2 + o.h * (i + 0.5) / k : o.y });
+    });
+    var T = tabs.map(function (id) { var it = items()[id]; return { id: id, x: it.x / 100 * W, y: it.y / 100 * H, cap: +it.cap || 0, s: [] }; });
+    function nearest(o) { var best = null, bd = 1e9; T.forEach(function (t) { var d = Math.hypot(t.x - o.x, t.y - o.y); if (d < bd) { bd = d; best = t; } }); return { t: best, d: bd }; }
+    chairs.forEach(function (o) { var nr = nearest(o); if (nr.d < W * 0.2) nr.t.s.push({ x: o.x, y: o.y, d: nr.d }); });
+    var sofaBy = {}; sofas.forEach(function (o) { var nr = nearest(o); if (nr.d < W * 0.2) (sofaBy[nr.t.id] = sofaBy[nr.t.id] || []).push({ x: o.x, y: o.y, d: nr.d }); });
+    var rep = [];
+    T.forEach(function (t) {
+      var s = t.s.sort(function (a, b) { return a.d - b.d; }).slice(0, t.cap), how = '椅子';
+      if (s.length < t.cap && sofaBy[t.id]) { s = s.concat(sofaBy[t.id].sort(function (a, b) { return a.d - b.d; }).slice(0, t.cap - s.length)); how = '椅子＋沙發'; }
+      var list;
+      if (s.length < t.cap * 0.5) {     // 沒畫椅子（圓桌）→ 依桌緣平均排
+        var cc = cx.getImageData(Math.round(t.x), Math.round(t.y), 1, 1).data, rr = [], dirs = 16;
+        for (var a = 0; a < dirs; a++) {
+          var ang = a / dirs * Math.PI * 2, d = 2;
+          for (; d < W * 0.15; d++) { var px = Math.round(t.x + Math.cos(ang) * d), py = Math.round(t.y + Math.sin(ang) * d); if (px < 0 || py < 0 || px >= W || py >= H) break; var ii = (py * W + px) * 4; if (Math.abs(D[ii] - cc[0]) + Math.abs(D[ii + 1] - cc[1]) + Math.abs(D[ii + 2] - cc[2]) > 60) break; }
+          rr.push(d);
+        }
+        rr.sort(function (a, b) { return a - b; }); var R = rr[Math.floor(rr.length / 2)] * 0.82; if (R < side * 2) R = W * 0.04;
+        list = []; for (var k2 = 0; k2 < t.cap; k2++) { var an = -Math.PI / 2 + k2 / t.cap * Math.PI * 2; list.push([t.x + Math.cos(an) * R, t.y + Math.sin(an) * R]); }
+        how = '桌緣平均排';
+      } else {
+        var mx = 0, my = 0; s.forEach(function (o) { mx += o.x; my += o.y; }); mx /= s.length; my /= s.length;
+        list = s.map(function (o) { return [o.x, o.y, Math.atan2(o.y - my, o.x - mx)]; }).sort(function (a, b) { return a[2] - b[2]; });
+      }
+      items()[t.id].pts = list.map(function (p) { return [Math.round(p[0] / W * 10000) / 100, Math.round(p[1] / H * 10000) / 100]; });
+      rep.push({ label: items()[t.id].label, got: list.length, cap: t.cap, how: how });
+    });
+    SEAT.plan.ar = AR; savePlan(); render();
+    var html = rep.map(function (r) { return '<span style="margin-right:10px;' + (r.got < r.cap ? 'color:#c0392b' : '') + '">' + esc(r.label) + '：' + r.got + '/' + r.cap + (r.how === '椅子' ? '' : '（' + r.how + '）') + (r.got < r.cap ? ' ⚠️' : ' ✓') + '</span>'; }).join('');
+    var st2 = $('autoSt'); if (st2) st2.innerHTML = '偵測完成，請看下方各桌特寫確認：' + html + '<br>不對的桌：點桌號 →「清除座位點」→「📍 依座位編號順序點場圖」手動點。';
+    return rep;
+  }).catch(function (e) { var st3 = $('autoSt'); if (st3) st3.textContent = '偵測失敗：' + e.message; return null; });
 }
 
 // ── 想樂：標桌 ──
@@ -427,6 +500,9 @@ window.WF = {
   ptsMode: function () { if (!SEL) return; PTSID = PTSID === SEL ? null : SEL; if (PTSID) { TOOL = null; document.querySelectorAll('[data-tool]').forEach(function (b) { b.classList.remove('on'); }); } ptsSt(); },
   ptsUndo: function () { if (!SEL) return; var it = items()[SEL]; it.pts = pts(SEL).slice(0, -1); refreshMarks(); ptsSt(); savePlan(); },
   ptsClear: function () { if (!SEL || !confirm('清除這桌所有座位點？')) return; items()[SEL].pts = []; refreshMarks(); ptsSt(); savePlan(); },
+  autoSeats: autoSeats,
+  importItems: function (list, replace) { if (!staffOn()) return false; SEAT.plan = SEAT.plan || { img: driveId(ORDER.layoutPlanUrl), items: {} }; if (replace) SEAT.plan.items = {}; list.forEach(function (o) { SEAT.plan.items[newId()] = { kind: o.kind || 'table', label: String(o.label), cap: +o.cap || 0, note: o.note || '', x: o.x, y: o.y }; }); savePlan(); render(); return true; },
+  info: function () { return { planImg: SEAT.plan && SEAT.plan.img, latest: driveId(ORDER.layoutPlanUrl) }; },
   setPts: function (id, list) { if (!staffOn() || !items()[id]) return false; items()[id].pts = list; savePlan(); render(); return true; },
   ids: function () { return ids().map(function (id) { return { id: id, label: items()[id].label, kind: items()[id].kind, cap: items()[id].cap }; }); },
   applyImg: function () { SEAT.plan.img = driveId(ORDER.layoutPlanUrl); render(); savePlan(); }
