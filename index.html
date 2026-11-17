@@ -65,9 +65,14 @@ h2{font-size:16px;margin:18px 0 8px;color:var(--g)}
 .fl.on.kid{background:#6BA1C7;border-color:#6BA1C7;color:#fff}.fl.on.veg{background:#2e8b57;border-color:#2e8b57;color:#fff}
 .tno{width:58px;flex:none;font:inherit;font-size:15px;font-weight:700;color:#9D380E;text-align:center;padding:4px 4px;border:1px solid #e3d3c9;border-radius:6px;background:#fffdfb}
 .ttl{flex:1;min-width:0;font:inherit;font-size:14px;padding:4px 8px;border:1px solid #e3d3c9;border-radius:6px;background:#fffdfb}
-.cd s{position:absolute;top:-6px;right:-9px;text-decoration:none;font-size:8px;line-height:11px;padding:0 2px;border-radius:3px;color:#fff;background:#6BA1C7}
-.cd s.v{right:auto;left:-9px;background:#2e8b57}
-.st.k{border-color:#6BA1C7}.st.v{box-shadow:0 0 0 2px #2e8b57}
+.cd s{position:absolute;top:-8px;right:-12px;text-decoration:none;font-size:10px;font-weight:700;line-height:13px;padding:0 3px;border-radius:4px;color:#fff;background:#2b78b0;border:1px solid #fff}
+.cd.k b{background:#2b78b0;border-color:#2b78b0;color:#fff}.cd.v b{background:#1f7a46;border-color:#1f7a46;color:#fff}.cd.k.v b{background:linear-gradient(90deg,#2b78b0 50%,#1f7a46 50%)}
+.st[data-f]{width:15px;height:15px;border:1.5px solid #fff;box-shadow:0 0 0 1.5px #333;z-index:3}
+.st[data-f]::after{content:attr(data-f);position:absolute;inset:0;font-size:8px;font-weight:700;line-height:12px;text-align:center;color:#fff}
+.st.k{background:#2b78b0}.st.v{background:#1f7a46}.st.k.v{background:linear-gradient(90deg,#2b78b0 50%,#1f7a46 50%);width:20px;border-radius:8px}
+.flagsum{font-size:13px;margin:6px 0 0;line-height:1.7}.flagsum b{display:inline-block;padding:0 6px;border-radius:4px;color:#fff;margin-right:4px}
+.flagsum .fk{background:#2b78b0}.flagsum .fv{background:#1f7a46}
+.cd s.v{right:auto;left:-12px;background:#1f7a46}
 .fhint{font-size:12px;color:var(--mute);margin:2px 0 6px}
 .over-row input{border-color:var(--bad)!important}
 .panel{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:2px solid var(--g);box-shadow:0 -4px 16px rgba(0,0,0,.15);padding:12px 16px calc(12px + env(safe-area-inset-bottom));z-index:20;display:none}
@@ -82,6 +87,10 @@ h2{font-size:16px;margin:18px 0 8px;color:var(--g)}
 .empty{text-align:center;padding:40px 16px;color:var(--mute);background:#fff;border:1px solid var(--line);border-radius:10px}
 .pool span{display:inline-block;background:#f3e7e0;border-radius:6px;padding:2px 8px;margin:2px;font-size:13px}
 @media print{
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .st[data-f]{width:20px;height:20px}.st[data-f]::after{font-size:11px;line-height:17px}.st.k.v{width:28px;border-radius:10px}
+  .cd s{font-size:12px;line-height:15px}
+  .flagsum{font-size:12px;border:1.5px solid #333;border-radius:6px;padding:4px 8px;margin:4px 0}
   header{background:none;color:#000;padding:0 0 6px}.bar button,.zoombar,.panel,.tools,.addseat,.no-print,.save-status,.fl:not(.on){display:none!important}.ttl,.tno{border:none;padding:0;font-weight:700}
   .mapbox{max-height:none;overflow:visible;border:none}.map{width:100%!important}
   .wrap{padding:0;max-width:none}.cards{grid-template-columns:repeat(3,1fr);gap:6px}
@@ -102,6 +111,7 @@ h2{font-size:16px;margin:18px 0 8px;color:var(--g)}
     <button class="no-print" onclick="window.print()">🖨 列印／存 PDF</button>
     <span class="save-status" id="saveStatus"></span>
   </div>
+  <div class="flagsum" id="flagSum"></div>
   <div id="warn"></div>
   <div id="main"><div class="empty">載入中…</div></div>
 </div>
@@ -216,7 +226,7 @@ function pts(id) { var p = items()[id] && items()[id].pts; return Array.isArray(
 function seatF(id, i, f) { var t = (SEAT.tables || {})[id]; return !!(t && t.seats && t.seats[i] && t.seats[i][f]); }
 function seatName(id, i) { var t = (SEAT.tables || {})[id]; return (t && t.seats && t.seats[i] && String(t.seats[i].name || '').trim()) || ''; }
 function dotsHtml(id) {
-  return pts(id).map(function (p, i) { var nm = seatName(id, i); return '<div class="st' + (nm ? ' f' : '') + (seatF(id, i, 'kid') ? ' k' : '') + (seatF(id, i, 'veg') ? ' v' : '') + '" data-sid="' + id + '" data-si="' + i + '" style="left:' + p[0] + '%;top:' + p[1] + '%" title="' + (i + 1) + (nm ? '　' + esc(nm) : '') + '"></div>'; }).join('');
+  return pts(id).map(function (p, i) { var nm = seatName(id, i); return '<div class="st' + (nm ? ' f' : '') + (seatF(id, i, 'kid') ? ' k' : '') + (seatF(id, i, 'veg') ? ' v' : '') + '"' + ((seatF(id, i, 'kid') || seatF(id, i, 'veg')) ? ' data-f="' + (seatF(id, i, 'kid') ? '童' : '') + (seatF(id, i, 'veg') ? '素' : '') + '"' : '') + ' data-sid="' + id + '" data-si="' + i + '" style="left:' + p[0] + '%;top:' + p[1] + '%" title="' + (i + 1) + (nm ? '　' + esc(nm) : '') + '"></div>'; }).join('');
 }
 function cropHtml(id) {
   var P = pts(id); if (!P.length || !AR) return '';
@@ -225,7 +235,7 @@ function cropHtml(id) {
   var W = Math.max(x1 - x0 + 6, 16), H = Math.max(y1 - y0 + 9, (W * 0.35) / AR);
   var cx = (x0 + x1) / 2, cy = (y0 + y1) / 2; x0 = cx - W / 2; y0 = cy - H / 2;
   var h = '<div class="chint">下圖是這桌的實際座位位置，編號對應下方格子</div><div class="crop" style="padding-top:' + (H * AR / W * 100).toFixed(2) + '%"><img src="' + imgUrl(SEAT.plan.img) + '" style="width:' + (10000 / W).toFixed(2) + '%;left:' + (-x0 / W * 100).toFixed(2) + '%;top:' + (-y0 / H * 100).toFixed(2) + '%">';
-  P.forEach(function (p, i) { var nm = seatName(id, i); h += '<div class="cd' + (nm ? ' f' : '') + '" data-cid="' + id + '" data-ci="' + i + '" style="left:' + ((p[0] - x0) / W * 100).toFixed(2) + '%;top:' + ((p[1] - y0) / H * 100).toFixed(2) + '%"><b>' + (i + 1) + '</b>' + (seatF(id, i, 'kid') ? '<s>童</s>' : '') + (seatF(id, i, 'veg') ? '<s class="v">素</s>' : '') + '<i>' + esc(nm) + '</i></div>'; });
+  P.forEach(function (p, i) { var nm = seatName(id, i); h += '<div class="cd' + (nm ? ' f' : '') + (seatF(id, i, 'kid') ? ' k' : '') + (seatF(id, i, 'veg') ? ' v' : '') + '" data-cid="' + id + '" data-ci="' + i + '" style="left:' + ((p[0] - x0) / W * 100).toFixed(2) + '%;top:' + ((p[1] - y0) / H * 100).toFixed(2) + '%"><b>' + (i + 1) + '</b>' + (seatF(id, i, 'kid') ? '<s>童</s>' : '') + (seatF(id, i, 'veg') ? '<s class="v">素</s>' : '') + '<i>' + esc(nm) + '</i></div>'; });
   return h + '</div>';
 }
 function seatHl(id, i) {
@@ -261,6 +271,12 @@ function stats() {
   $('sFilled').textContent = n; $('sCap').textContent = cap;
   var a = +FORM.paxAdult || 0, k = +FORM.paxKid612 || 0, u = +FORM.paxKidU6 || 0, g = +FORM.guaranteedPax || 0;
   var tk = 0, tv = 0; Object.keys(SEAT.tables || {}).forEach(function (id) { if (!items()[id]) return; (SEAT.tables[id].seats || []).forEach(function (x) { if (x && x.kid) tk++; if (x && x.veg) tv++; }); });
+  var lk = [], lv = [];
+  ids().forEach(function (id) {
+    var it = items()[id]; if (it.kind === 'zone') return; var t = (SEAT.tables || {})[id] || {}, nm = String(t.no || '').trim() || it.label;
+    (t.seats || []).forEach(function (x, i) { if (!x) return; var w = nm + ' 桌 ' + (i + 1) + ' 號' + (String(x.name || '').trim() ? '（' + esc(x.name.trim()) + '）' : ''); if (x.kid) lk.push(w); if (x.veg) lv.push(w); });
+  });
+  $('flagSum').innerHTML = (lk.length ? '<div><b class="fk">童 兒童椅 ' + lk.length + ' 張</b>' + lk.join('、') + '</div>' : '') + (lv.length ? '<div><b class="fv">素 素食 ' + lv.length + ' 位</b>' + lv.join('、') + '</div>' : '');
   $('sFlags').innerHTML = (tk ? '兒童椅 <b>' + tk + '</b> 張' : '') + (tk && tv ? '・' : '') + (tv ? '素食 <b>' + tv + '</b> 位' : '');
   $('sForm').innerHTML = (a || k || u) ? '確認單 <b>' + (a + k + u) + '</b> 位<span style="font-size:12px;color:#8a7568">（大人 ' + a + (k ? '・兒童 ' + k : '') + (u ? '・6 歲以下 ' + u : '') + '）</span>' : (g ? '保證人數 <b>' + g + '</b> 位' : '');
   var w = [];
