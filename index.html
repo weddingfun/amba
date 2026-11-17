@@ -356,7 +356,7 @@ function autoSeats(force) {
     function cls(i) {
       var r = D[i], g = D[i + 1], b = D[i + 2];
       if (r > 200 && g > 110 && g < 200 && b > 150 && r - g > 40) return 1;                 // 粉紅椅
-      if (b > 180 && b - r > 50 && g > 120) return 2;                                      // 藍椅
+      if (b > 180 && b - r > 40 && g > 120) return 2;                                      // 藍椅
       if (r > 225 && g > 205 && b > 140 && b < 215 && r - b > 25) return 3;                 // 米色（沙發）
       return 0;
     }
@@ -370,7 +370,7 @@ function autoSeats(force) {
         var nb = [q + 1, q - 1, q + W, q - W];
         for (var k = 0; k < 4; k++) { var np = nb[k]; if (np < 0 || np >= W * H || lab[np]) continue; if ((k < 2) && Math.floor(np / W) !== qy) continue; if (cls(np * 4) !== c) continue; lab[np] = 1; stack.push(np); }
       }
-      if (n >= 20) comps.push({ c: c, n: n, x: sx / n, y: sy / n, w: x1 - x0 + 1, h: y1 - y0 + 1 });
+      if (n >= 6) comps.push({ c: c, n: n, x: sx / n, y: sy / n, w: x1 - x0 + 1, h: y1 - y0 + 1 });
     }
     var sq = comps.filter(function (o) { return o.c !== 3 && o.w / o.h > 0.7 && o.w / o.h < 1.4; }).map(function (o) { return o.n; }).sort(function (a, b) { return a - b; });
     var med = sq.length ? sq[Math.floor(sq.length / 2)] : 120, side = Math.sqrt(med);
