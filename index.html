@@ -333,15 +333,21 @@ function autoSeats(force) {
       for (var i = 0; i < k; i++) sofas.push({ x: r > 1.4 ? o.x - o.w / 2 + o.w * (i + 0.5) / k : o.x, y: r < 0.71 ? o.y - o.h / 2 + o.h * (i + 0.5) / k : o.y });
     });
     var T = tabs.map(function (id) { var it = items()[id]; return { id: id, x: it.x / 100 * W, y: it.y / 100 * H, cap: +it.cap || 0, s: [] }; });
-    function nearest(o) { var best = null, bd = 1e9; T.forEach(function (t) { var d = Math.hypot(t.x - o.x, t.y - o.y); if (d < bd) { bd = d; best = t; } }); return { t: best, d: bd }; }
-    chairs.forEach(function (o) { var nr = nearest(o); if (nr.d < W * 0.2) nr.t.s.push({ x: o.x, y: o.y, d: nr.d }); });
-    var sofaBy = {}; sofas.forEach(function (o) { var nr = nearest(o); if (nr.d < W * 0.2) (sofaBy[nr.t.id] = sofaBy[nr.t.id] || []).push({ x: o.x, y: o.y, d: nr.d }); });
+    function fill(list, kind) {
+      var cand = [];
+      list.forEach(function (o, i) { o.k = kind; T.forEach(function (t) { var d = Math.hypot(t.x - o.x, t.y - o.y); if (d < W * 0.2) cand.push({ i: i, o: o, t: t, d: d }); }); });
+      cand.sort(function (a, b) { return a.d - b.d; });
+      var used = {};
+      cand.forEach(function (c) { if (used[c.i] || c.t.s.length >= c.t.cap) return; used[c.i] = 1; c.t.s.push(c.o); });
+    }
+    fill(chairs, '椅子');
+    T.forEach(function (t) { if (t.s.length < t.cap * 0.5) t.round = t.s.length < 4; });
+    var short = T.filter(function (t) { return t.s.length < t.cap && !t.round; }), keep = T; T = short; fill(sofas, '沙發'); T = keep;
     var rep = [];
     T.forEach(function (t) {
-      var s = t.s.sort(function (a, b) { return a.d - b.d; }).slice(0, t.cap), how = '椅子';
-      if (s.length < t.cap && sofaBy[t.id]) { s = s.concat(sofaBy[t.id].sort(function (a, b) { return a.d - b.d; }).slice(0, t.cap - s.length)); how = '椅子＋沙發'; }
+      var s = t.s, how = s.some(function (o) { return o.k === '沙發'; }) ? '椅子＋沙發' : '椅子';
       var list;
-      if (s.length < t.cap * 0.5) {     // 沒畫椅子（圓桌）→ 依桌緣平均排
+      if (t.round || s.length < t.cap * 0.5) {     // 沒畫椅子（圓桌）→ 依桌緣平均排
         var cc = cx.getImageData(Math.round(t.x), Math.round(t.y), 1, 1).data, rr = [], dirs = 16;
         for (var a = 0; a < dirs; a++) {
           var ang = a / dirs * Math.PI * 2, d = 2;
