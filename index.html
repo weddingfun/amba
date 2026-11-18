@@ -30,13 +30,14 @@ header .sub{font-size:13px;opacity:.9;margin-top:3px}
 .mk.sel{outline:3px solid var(--g);outline-offset:1px}
 .mk{z-index:2}
 .st{position:absolute;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#fff;border:1.5px solid #9D380E;cursor:pointer;z-index:1;box-sizing:border-box}
-.st.f{background:#2e8b57;border-color:#fff}
+.st.f{background:#7a5a4a;border-color:#fff}
+.lg{display:inline-flex;align-items:center;gap:3px;margin-left:8px;white-space:nowrap}.lg i{display:inline-block;width:11px;height:11px;border-radius:50%}
 .st.hl,.cd.hl b{box-shadow:0 0 0 3px #6BA1C7}
 .crop{position:relative;overflow:hidden;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;background:#fff}
 .crop img{position:absolute;max-width:none;pointer-events:none;opacity:.55}
 .cd{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;cursor:pointer;z-index:1}
 .cd b{width:18px;height:18px;border-radius:50%;background:#fff;border:1.5px solid #9D380E;color:#9D380E;font-size:10px;line-height:15px;text-align:center;box-sizing:border-box}
-.cd.f b{background:#2e8b57;border-color:#2e8b57;color:#fff}
+.cd.f b{background:#7a5a4a;border-color:#7a5a4a;color:#fff}
 .cd i{font-style:normal;font-size:9px;line-height:1.1;background:rgba(255,255,255,.9);padding:0 2px;border-radius:3px;max-width:36px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;margin-top:1px}
 .cd i:empty{display:none}
 .chint{font-size:12px;color:var(--mute);margin:-2px 0 6px}
@@ -240,7 +241,7 @@ function cropHtml(id) {
   var W = Math.max(x1 - x0 + 6, 16), H = Math.max(y1 - y0 + 9, (W * 0.35) / AR);
   var cx = (x0 + x1) / 2, cy = (y0 + y1) / 2; x0 = cx - W / 2; y0 = cy - H / 2;
   var h = '<div class="chint">下圖是這桌的實際座位位置，編號對應下方格子</div><div class="crop" style="padding-top:' + (H * AR / W * 100).toFixed(2) + '%"><img src="' + imgUrl(SEAT.plan.img) + '" style="width:' + (10000 / W).toFixed(2) + '%;left:' + (-x0 / W * 100).toFixed(2) + '%;top:' + (-y0 / H * 100).toFixed(2) + '%">';
-  P.forEach(function (p, i) { var nm = seatName(id, i); h += '<div class="cd' + (nm ? ' f' : '') + (seatF(id, i, 'kid') ? ' k' : '') + (seatF(id, i, 'veg') ? ' v' : '') + '" data-cid="' + id + '" data-ci="' + i + '" style="left:' + ((p[0] - x0) / W * 100).toFixed(2) + '%;top:' + ((p[1] - y0) / H * 100).toFixed(2) + '%"><b>' + (i + 1) + '</b>' + (seatF(id, i, 'kid') ? '<s>童</s>' : '') + (seatF(id, i, 'veg') ? '<s class="v">素</s>' : '') + '<i>' + esc(nm) + '</i></div>'; });
+  P.forEach(function (p, i) { var nm = seatName(id, i); h += '<div class="cd' + (nm ? ' f' : '') + (seatF(id, i, 'kid') ? ' k' : '') + (seatF(id, i, 'veg') ? ' v' : '') + '" data-cid="' + id + '" data-ci="' + i + '" style="left:' + ((p[0] - x0) / W * 100).toFixed(2) + '%;top:' + ((p[1] - y0) / H * 100).toFixed(2) + '%"><b>' + (i + 1) + '</b>' + '<i>' + esc(nm) + '</i></div>'; });
   return h + '</div>';
 }
 function seatHl(id, i) {
@@ -267,7 +268,7 @@ function cardHtml(id) {
   var tags = (nk ? '兒童椅 ' + nk : '') + (nk && nv ? '・' : '') + (nv ? '素食 ' + nv : '');
   return '<div class="card' + (pts(id).length > 20 ? ' wide' : '') + '" id="card_' + id + '"><div class="hd"><input class="tno" data-tno="' + id + '" value="' + esc(t.no || '') + '" placeholder="' + esc(it.label) + '" title="桌號（可改，例：A、B、主桌）"><input class="ttl" data-title="' + id + '" value="' + esc(t.title || '') + '" placeholder="桌名（例：主桌、男方同事）"><span class="pill">' + cap + ' 位</span><span class="cnt' + (n > cap ? ' over' : '') + '">已填 ' + n + '／' + cap + '</span></div>' +
     (it.note ? '<div class="zdesc">' + esc(it.note) + '</div>' : '') + cropHtml(id) +
-    '<div class="fhint">桌號可自行修改（例：A、B）；按「童」標記需要兒童椅、「素」標記素食' + (tags ? '　<b style="color:#9D380E">本桌：' + tags + '</b>' : '') + '</div>' +
+    '<div class="fhint">桌號可自行修改（例：A、B）；按「童」標記需要兒童椅、「素」標記素食<br>圖上編號顏色：<span class="lg"><i style="border:1.5px solid #9D380E"></i>未填</span><span class="lg"><i style="background:#7a5a4a"></i>已填</span><span class="lg"><i style="background:#1f7a46"></i>素食</span><span class="lg"><i style="background:#2b78b0"></i>兒童椅</span>' + (tags ? '　<b style="color:#9D380E">本桌：' + tags + '</b>' : '') + '</div>' +
     '<div class="seats">' + s + '</div><input class="note" data-note="' + id + '" style="margin-top:6px" value="' + esc(t.note || '') + '" placeholder="本桌備註"></div>';
 }
 function stats() {
